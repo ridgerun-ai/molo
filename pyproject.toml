@@ -1,0 +1,25 @@
+[project]
+name = "molo"
+version = "0.1.0"
+description = "Implementation of YOLO object detection models in Mojo."
+readme = "README.md"
+authors = [
+    { name = "Michael Gruner", email = "michael.gruner@ridgerun.com" }
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+molo = "molo.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "gitlint>=0.19.1",
+    "pre-commit>=4.5.1",
+    "ruff>=0.15.10",
+    "ty>=0.0.29",
+]

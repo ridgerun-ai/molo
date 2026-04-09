@@ -1,0 +1,41 @@
+default_stages:
+    - pre-commit
+    - pre-push
+    - pre-merge-commit
+
+default_install_hook_types:
+    - pre-commit
+    - pre-push
+    - pre-merge-commit
+    - commit-msg
+
+repos:
+    - repo: https://github.com/astral-sh/ruff-pre-commit
+      rev: v0.15.9
+      hooks:
+          - id: ruff-check
+            args: [--fix]
+          - id: ruff-format
+
+    - repo: https://github.com/astral-sh/uv-pre-commit
+      rev: 0.11.3
+      hooks:
+          # Update the uv lockfile
+          - id: uv-lock
+    - repo: local
+      hooks:
+          - id: ty-check
+            name: ty check
+            entry: uv run ty check
+            language: system
+            types: [python]
+            pass_filenames: true
+    - repo: https://github.com/RidgeRun/pre-commit-rip0003-commit-msg
+      rev: 59dc42c
+      hooks:
+          - id: rip0003-commit-msg
+          - id: rip0003-mainline-pre-push
+    - repo: https://github.com/RidgeRun/pre-commit-rip0005-gitflow
+      rev: 8c628fc
+      hooks:
+          - id: rip0005-gitflow
