@@ -1,18 +1,10 @@
-import sys
+#!/usr/bin/env python3
 
-from molo.drivers.yolo import App
+from ultralytics.cfg import entrypoint
 
 
 def main() -> None:
-    argv = sys.argv
-    app = App()
-
-    try:
-        app(argv)
-    except Exception as e:
-        print(f"{str(e)}\n", file=sys.stderr)
-        print(app.help(), file=sys.stderr)
-        sys.exit(1)
+    entrypoint()
 
 
 if __name__ == "__main__":
