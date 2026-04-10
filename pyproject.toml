@@ -7,7 +7,9 @@ authors = [
     { name = "Michael Gruner", email = "michael.gruner@ridgerun.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "ultralytics>=8.4.36",
+]
 
 [project.scripts]
 molo = "molo.__main__:main"
