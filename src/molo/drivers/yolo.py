@@ -17,8 +17,27 @@ class Config:
 Task = Literal["segment", "obb", "classify", "pose", "detect"]
 Mode = Literal["track", "val", "train", "export", "predict", "benchmark"]
 
+TASKS = get_args(Task)
+MODES = get_args(Mode)
+
 DEFAULT_TASK: Task = "detect"
 DEFAULT_ARGS: list[Config] = []
+
+HELP = f"""
+    molo [TASK] MODE [ARGS]
+
+    Where   TASK (optional) is one of [{", ".join(TASKS)}]
+            MODE (required) is one of [{", ".join(MODES)}]
+            ARGS (optional) are any number of custom 'arg=value' pairs like 'imgsz=320' that override defaults.
+                See all ARGS at https://docs.ultralytics.com/usage/cfg or with 'yolo cfg'
+
+This version only supports `detect` and `predict`:
+
+1. Predict a YouTube video using a pretrained segmentation model at image size 320:
+    molo predict model=yolo26n-seg.pt source='https://youtu.be/LNwODJXcvt4' imgsz=320
+
+MOLO mimics the ergonomics of Ultralyics `yolo` command to act as drop-in replacement.
+""".strip()
 
 
 @dataclass
@@ -77,38 +96,35 @@ class YOLO11Nano(DetectionPredictor):
 def parse_args(argv: list[str]) -> Arguments:
     argc = len(argv)
 
-    tasks = set(get_args(Task))
-    modes = set(get_args(Mode))
-
     match argv:
         # molo
         case [_]:
-            raise RuntimeError("MODE is a mandatory argument 1")
+            raise RuntimeError("MODE is a mandatory argument")
         # molo detect y a=b | molo detect y
         case [_, task, mode, *_] if (
-            task in tasks and mode not in modes and "=" not in mode
+            task in TASKS and mode not in MODES and "=" not in mode
         ):
-            raise RuntimeError(f"Invalid value for MODE: {mode} 5")
+            raise RuntimeError(f"Invalid value for MODE: {mode}")
         # molo x predict a=b | molo x predict
-        case [_, task, mode, *_] if task not in tasks and mode in modes:
-            raise RuntimeError(f"Invalid value for TASK: {task} 6")
+        case [_, task, mode, *_] if task not in TASKS and mode in MODES:
+            raise RuntimeError(f"Invalid value for TASK: {task}")
         # molo detect a=b c=d | molo detect a=b | molo a=b c=d | molo c=d
-        case [_, task, mode, *_] if task in tasks and "=" in mode:
-            raise RuntimeError("MODE is a mandatory argument 4")
+        case [_, task, mode, *_] if task in TASKS and "=" in mode:
+            raise RuntimeError("MODE is a mandatory argument")
         # molo a=b c=d | molo a=b
         case [_, mode, *_] if "=" in mode:
-            raise RuntimeError("Mode is a mandatory argument 3")
+            raise RuntimeError("Mode is a mandatory argument")
         # molo x a=b | molo x
-        case [_, mode, *_] if mode not in modes and mode not in tasks:
-            raise RuntimeError(f"Invalid value for MODE {mode} 3")
+        case [_, mode, *_] if mode not in MODES and mode not in TASKS:
+            raise RuntimeError(f"Invalid value for MODE {mode}")
 
-        case [_, task, mode, *args] if task in tasks and mode in modes:
+        case [_, task, mode, *args] if task in TASKS and mode in MODES:
             return Arguments(
                 task=task,
                 mode=mode,
                 args=parse_config(args) if argc > 3 else DEFAULT_ARGS,
             )
-        case [_, mode, *args] if mode in modes:
+        case [_, mode, *args] if mode in MODES:
             return Arguments(
                 task=DEFAULT_TASK,
                 mode=mode,
@@ -135,3 +151,6 @@ class App:
                 raise RuntimeError(
                     f"Invoking '{task}' with '{mode}' is not supported yet. Only 'detect' with 'predict' is implemented in this version.",
                 )
+
+    def help(self) -> str:
+        return HELP

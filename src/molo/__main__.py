@@ -10,7 +10,8 @@ def main() -> None:
     try:
         app(argv)
     except Exception as e:
-        print(f"{str(e)}", file=sys.stderr)
+        print(f"{str(e)}\n", file=sys.stderr)
+        print(app.help(), file=sys.stderr)
         sys.exit(1)
 
 
