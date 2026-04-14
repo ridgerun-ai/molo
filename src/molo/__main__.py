@@ -1,5 +1,13 @@
+#!/usr/bin/env python3
+
+from ultralytics.cfg import entrypoint
+
+from molo.drivers.yolo import install_max_backend
+
+
 def main() -> None:
-    print("Hello from molo!")
+    install_max_backend()
+    entrypoint()
 
 
 if __name__ == "__main__":
