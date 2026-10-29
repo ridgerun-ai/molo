@@ -21,14 +21,6 @@ def _assign_module(target: dict[str, np.ndarray], prefix: str, module) -> None:
 def _assign_conv(
     target: dict[str, np.ndarray], prefix: str, module, *, max_name: str | None = None
 ) -> None:
-    # max_name belongs to the previous fused-weight mapping and is accepted
-    # so the existing backend can keep calling this function unchanged.
-    if not hasattr(module, "bn"):
-        raise ValueError("Expected an unfused checkpoint with BatchNorm parameters")
-    if abs(float(module.bn.eps) - 1e-3) > 1e-10:
-        raise ValueError(
-            f"Unsupported BatchNorm epsilon {module.bn.eps}; expected 0.001"
-        )
     _assign_module(target, prefix, module)
 
 
@@ -56,11 +48,10 @@ def convert_checkpoint(source: str | Path, destination: str | Path) -> None:
     yolo = YOLO(str(source))
     model = yolo.model.model  # ty: ignore[unresolved-attribute]
     names = dict(yolo.names)
-    if yolo.task != "detect" or getattr(model[-1], "reg_max", None) != 16:
-        raise ValueError("MAX export supports YOLO11 detection models only")
-    size = yolo.model.yaml.get("scale")  # ty: ignore[unresolved-attribute]
-    if size not in YOLO11_SIZES:
-        raise ValueError(f"Unsupported or missing YOLO11 size: {size!r}")
+    model_id = Path(yolo.model.yaml.get("yaml_file", "")).stem  # ty: ignore[unresolved-attribute]
+    if model_id not in {f"yolo11{size}" for size in YOLO11_SIZES}:
+        raise ValueError(f"Unsupported model identifier: {model_id!r}")
+    size = model_id.removeprefix("yolo11")
     target: dict[str, np.ndarray] = {}
     for idx in (0, 1, 3, 5, 7, 17, 20):
         _assign_conv(target, f"layer{idx}", model[idx])

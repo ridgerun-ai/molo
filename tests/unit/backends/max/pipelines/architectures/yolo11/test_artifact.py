@@ -26,8 +26,7 @@ class ArtifactTest(unittest.TestCase):
         for size in ("n", "s", "m", "l", "x"):
             with self.subTest(size=size):
                 metadata = {
-                    "format": "molo.yolo11.weights",
-                    "size": size,
+                    "model_id": f"yolo11{size}",
                     "names": {"0": "object"},
                 }
                 archive = Archive(
@@ -45,14 +44,10 @@ class ArtifactTest(unittest.TestCase):
                 self.assertEqual(names, {0: "object"})
                 np.testing.assert_array_equal(weights["weight"], [1])
 
-    def test_missing_or_invalid_size(self):
-        for size in (None, "invalid"):
-            with self.subTest(size=size):
-                metadata = {
-                    "format": "molo.yolo11.weights",
-                    "size": size,
-                    "names": {"0": "object"},
-                }
+    def test_missing_or_invalid_identifier(self):
+        for model_id in (None, "invalid"):
+            with self.subTest(model_id=model_id):
+                metadata = {"model_id": model_id, "names": {"0": "object"}}
                 archive = Archive(
                     __molo_metadata__=np.frombuffer(
                         json.dumps(metadata).encode(), dtype=np.uint8
@@ -62,5 +57,7 @@ class ArtifactTest(unittest.TestCase):
                     "molo.backends.max.pipelines.architectures.yolo11.artifact.np.load",
                     return_value=archive,
                 ):
-                    with self.assertRaisesRegex(ValueError, "Unsupported YOLO11 size"):
+                    with self.assertRaisesRegex(
+                        ValueError, "Unsupported model identifier"
+                    ):
                         load_artifact("model.max")
