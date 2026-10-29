@@ -4,7 +4,7 @@ from max.dtype import DType
 from max.graph import DeviceRef, TensorValue, ops
 from max.nn import Conv2d, Module
 
-from .batch_norm import BatchNorm
+from molo.backends.max.nn.norm.batch_norm import BatchNorm
 
 
 class Conv(Module):

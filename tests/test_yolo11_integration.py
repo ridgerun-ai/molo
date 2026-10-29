@@ -6,7 +6,7 @@ Run with: uv run --no-sync python tests/test_yolo11_integration.py
 import numpy as np
 import torch
 from ultralytics import YOLO
-from molo.drivers.yolo import MaxBackend
+from molo.models.yolo.backend import MaxBackend
 
 reference = YOLO("yolo11n.pt").model.eval()  # ty: ignore[unresolved-attribute]
 backend = MaxBackend("yolo11n.max", device=torch.device("cpu"))

@@ -36,8 +36,13 @@ class MaxBackend(BaseBackend):
             from max.driver import Device
             from max.engine import InferenceSession
             from ultralytics import YOLO
-            from molo.yolo11_max import convert as max_convert
-            from molo.yolo11_max.model import YOLO11Config, build_graph
+            from molo.backends.max.pipelines.architectures.yolo11 import (
+                convert as max_convert,
+            )
+            from molo.backends.max.pipelines.architectures.yolo11.model import (
+                YOLO11Config,
+                build_graph,
+            )
         except ImportError as exc:
             raise ImportError(
                 "The MAX runtime is required to load .max models."

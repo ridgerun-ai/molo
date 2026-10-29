@@ -7,12 +7,12 @@ from max import nn
 from max.dtype import DType
 from max.graph import DeviceRef, Graph, TensorType, ops
 
-from .c2psa import C2PSA
-from .c3k2 import C3k2
-from .conv import Conv
-from .detect import Detect
-from .sppf import SPPF
-from .upsample import UpsampleNearest2x
+from .layers.c2psa import C2PSA
+from .layers.c3k2 import C3k2
+from .layers.conv import Conv
+from .layers.detect import Detect
+from .layers.sppf import SPPF
+from .layers.upsample import UpsampleNearest2x
 
 
 @dataclass(frozen=True)
