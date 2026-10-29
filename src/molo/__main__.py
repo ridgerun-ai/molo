@@ -2,11 +2,11 @@
 
 from ultralytics.cfg import entrypoint
 
-from molo.drivers.yolo import install_max_backend
+from molo.models.yolo import install
 
 
 def main() -> None:
-    install_max_backend()
+    install()
     entrypoint()
 
 
