@@ -49,7 +49,11 @@ def _assign_detect(target: dict[str, np.ndarray], prefix: str, block) -> None:
 def convert_checkpoint(source: str | Path, destination: str | Path) -> None:
     from ultralytics import YOLO
 
-    model = YOLO(str(source)).model.model  # ty: ignore[unresolved-attribute]
+    from .artifact import save_artifact
+
+    yolo = YOLO(str(source))
+    model = yolo.model.model  # ty: ignore[unresolved-attribute]
+    names = dict(yolo.names)
     target: dict[str, np.ndarray] = {}
     for idx in (0, 1, 3, 5, 7, 17, 20):
         _assign_conv(target, f"layer{idx}", model[idx])
@@ -58,9 +62,7 @@ def convert_checkpoint(source: str | Path, destination: str | Path) -> None:
     _assign_sppf(target, "layer9", model[9])
     _assign_c2psa(target, "layer10", model[10])
     _assign_detect(target, "detect", model[23])
-    destination = Path(destination)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(destination, **target)  # ty: ignore[invalid-argument-type]
+    save_artifact(destination, target, names)
 
 
 def main() -> None:
@@ -68,7 +70,7 @@ def main() -> None:
         description="Convert Ultralytics YOLO11n weights for MAX."
     )
     parser.add_argument("source", help="Path to an Ultralytics YOLO11n checkpoint")
-    parser.add_argument("destination", help="Path to the output .npz file")
+    parser.add_argument("destination", help="Path to the output .max file")
     args = parser.parse_args()
     convert_checkpoint(args.source, args.destination)
 

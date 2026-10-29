@@ -14,7 +14,6 @@ class MaxBackend(BaseBackend):
     def load_model(self, weight):
         from pathlib import Path
 
-        import numpy as np
         import torch
 
         weight_path = Path(weight)
@@ -35,9 +34,8 @@ class MaxBackend(BaseBackend):
         try:
             from max.driver import Device
             from max.engine import InferenceSession
-            from ultralytics import YOLO
-            from molo.backends.max.pipelines.architectures.yolo11 import (
-                convert as max_convert,
+            from molo.backends.max.pipelines.architectures.yolo11.artifact import (
+                load_artifact,
             )
             from molo.backends.max.pipelines.architectures.yolo11.model import (
                 YOLO11Config,
@@ -48,39 +46,9 @@ class MaxBackend(BaseBackend):
                 "The MAX runtime is required to load .max models."
             ) from exc
 
-        source_path = weight_path
-        if source_path.suffix == ".max":
-            source_path = source_path.with_suffix(".pt")
-        if source_path.suffix != ".pt":
-            raise ValueError(
-                f"Expected a .max or .pt weight path, got '{source_path}'."
-            )
-        if not source_path.exists():
-            raise FileNotFoundError(
-                f"Could not find source checkpoint '{source_path}'."
-            )
-
-        yolo = YOLO(str(source_path))
-        pt = yolo.model.model  # ty: ignore[unresolved-attribute]
-        names = getattr(yolo.model, "names", None) or getattr(yolo, "names", None) or {}
-        self.names = dict(names)
+        self.weights_registry, self.names = load_artifact(weight_path)
         self._build_graph = build_graph
-        target: dict[str, np.ndarray] = {}
-
-        for idx in (0, 1, 3, 5, 7, 17, 20):
-            max_convert._assign_conv(
-                target, f"layer{idx}", pt[idx], max_name=f"layer{idx}"
-            )
-
-        for idx in (2, 4, 6, 8, 13, 16, 19, 22):
-            max_convert._assign_c3k2(target, f"layer{idx}", pt[idx])
-
-        max_convert._assign_sppf(target, "layer9", pt[9])
-        max_convert._assign_c2psa(target, "layer10", pt[10])
-        max_convert._assign_detect(target, "detect", pt[23])
-
-        self.weights_registry = target
-        self.config = YOLO11Config()
+        self.config = YOLO11Config(nc=len(self.names))
         self.imgsz = self.config.input_size
         self.metadata = {
             "batch": self.batch,
