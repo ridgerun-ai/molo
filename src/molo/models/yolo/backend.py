@@ -46,9 +46,9 @@ class MaxBackend(BaseBackend):
                 "The MAX runtime is required to load .max models."
             ) from exc
 
-        self.weights_registry, self.names = load_artifact(weight_path)
+        self.weights_registry, self.names, size = load_artifact(weight_path)
         self._build_graph = build_graph
-        self.config = YOLO11Config(nc=len(self.names))
+        self.config = YOLO11Config(size=size, nc=len(self.names))
         self.imgsz = self.config.input_size
         self.metadata = {
             "batch": self.batch,

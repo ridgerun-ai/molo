@@ -31,7 +31,7 @@ def install_max_exporter() -> None:
 
         source = Path(self.file)
         if source.suffix.lower() != ".pt":
-            raise ValueError("MAX export requires a YOLO11n .pt checkpoint")
+            raise ValueError("MAX export requires a YOLO11 .pt checkpoint")
         destination = source.with_suffix(".max")
         convert_checkpoint(source, destination)
         return str(destination)
