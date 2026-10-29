@@ -1,6 +1,6 @@
 """Verify molo's Python API with MAX and standard Ultralytics models.
 
-Run with: uv run --no-sync python tests/test_python_api.py
+Run with: uv run --no-sync python tests/integration/models/yolo/test_python_api.py
 """
 
 import shutil

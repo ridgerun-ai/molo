@@ -1,6 +1,6 @@
 """Exercise MAX export registration and the molo export command.
 
-Run with: uv run --no-sync python tests/test_max_export.py
+Run with: uv run --no-sync python tests/integration/models/yolo/test_max_export.py
 """
 
 import shutil

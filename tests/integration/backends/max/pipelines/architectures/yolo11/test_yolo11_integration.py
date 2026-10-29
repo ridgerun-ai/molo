@@ -1,6 +1,6 @@
 """Compare the MAX backend with Ultralytics using the local YOLO11n checkpoint.
 
-Run with: uv run --no-sync python tests/test_yolo11_integration.py
+Run with: uv run --no-sync python tests/integration/backends/max/pipelines/architectures/yolo11/test_yolo11_integration.py
 """
 
 from pathlib import Path
