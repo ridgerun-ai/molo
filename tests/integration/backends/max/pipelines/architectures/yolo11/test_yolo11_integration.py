@@ -4,7 +4,6 @@ Run with: uv run --no-sync python tests/integration/backends/max/pipelines/archi
 """
 
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import numpy as np
 import torch
@@ -13,8 +12,9 @@ from molo.models.yolo.backend import MaxBackend
 from molo.backends.max.pipelines.architectures.yolo11.convert import convert_checkpoint
 
 reference = YOLO("yolo11n.pt").model.eval()  # ty: ignore[unresolved-attribute]
-temp_dir = TemporaryDirectory()
-artifact = Path(temp_dir.name) / "standalone.max"
+artifact = Path("standalone.max")
+if artifact.exists():
+    raise FileExistsError(f"Refusing to overwrite {artifact}")
 convert_checkpoint("yolo11n.pt", artifact)
 assert not artifact.with_suffix(".pt").exists()
 backend = MaxBackend(str(artifact), device=torch.device("cpu"))
