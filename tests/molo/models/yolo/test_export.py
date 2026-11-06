@@ -3,7 +3,11 @@
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
+from typing import Any, cast
 
+import numpy as np
+import torch
 from pathlib import Path
 
 from ultralytics.engine import exporter
@@ -61,3 +65,36 @@ class ExportTest(unittest.TestCase):
         finally:
             for output in outputs:
                 output.unlink(missing_ok=True)
+
+    def test_loaded_model_export(self):
+        for source in "yolo11n.yaml":
+            with self.subTest(source=source):
+                self.check_loaded_model_export(source)
+
+    def check_loaded_model_export(self, source):
+        from molo.models.yolo.backend import MaxBackend
+
+        model = YOLO(source)
+        reference = cast(Any, model.model)
+        reference.pt_path = "in_memory.pt"
+        reference.eval()
+        with torch.no_grad():
+            reference.model[0].conv.weight.mul_(0.5)
+        artifact = Path("in_memory.max")
+        if artifact.exists():
+            raise FileExistsError(f"Refusing to overwrite {artifact}")
+        x = np.random.default_rng(12).random((1, 3, 64, 64), dtype=np.float32)
+        try:
+            with patch(
+                "ultralytics.YOLO",
+                side_effect=AssertionError("Exporter must not reload a checkpoint"),
+            ):
+                result = model.export(format="max", imgsz=64)
+            self.assertEqual(Path(result), artifact)
+            backend = MaxBackend(str(artifact), device=torch.device("cpu"))
+            with torch.inference_mode():
+                expected = reference(torch.from_numpy(x))[0].numpy()
+                actual = backend.forward(torch.from_numpy(x)).numpy()
+            np.testing.assert_allclose(actual, expected, atol=0.003, rtol=1e-4)
+        finally:
+            artifact.unlink(missing_ok=True)

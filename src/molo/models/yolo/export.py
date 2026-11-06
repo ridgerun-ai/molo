@@ -1,8 +1,6 @@
 """Register MAX export with the Ultralytics exporter."""
 
 from pathlib import Path
-from typing import cast
-from ultralytics.nn.tasks import DetectionModel
 
 from ultralytics.engine import exporter
 
@@ -26,21 +24,15 @@ def install_max_exporter() -> None:
         }
         return {key: (*values, row[key]) for key, values in formats.items()}
 
-    def export_max(self) -> str:
+    @exporter.try_export
+    def export_max(self, prefix=exporter.colorstr("MAX:")) -> Path:
         from molo.backends.max.pipelines.architectures.yolo.convert import (
             convert_model,
         )
 
-        from ultralytics import YOLO
-
-        source = Path(self.file)
-        destination = source.with_suffix(".max")
-        convert_model(
-            cast(DetectionModel, YOLO(str(source)).model),
-            destination,
-            model_id=source.stem,
-        )
-        return str(destination)
+        destination = self.file.with_suffix(".max")
+        convert_model(self.model, destination, model_id=Path(self.args.model).stem)
+        return destination
 
     setattr(exporter, "export_formats", export_formats)
     setattr(exporter.Exporter, "export_max", export_max)
