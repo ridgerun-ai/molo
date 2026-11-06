@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
+from pathlib import Path
+
+import numpy as np
+import torch
 
 if TYPE_CHECKING:
     from molo.backends.max.pipelines.architectures.yolo.config import ImageShape
@@ -18,26 +22,19 @@ def _has_max_extension(path: str) -> bool:
 
 class MaxBackend(BaseBackend):
     def load_model(self, weight):
-        from pathlib import Path
-
-        import torch
-
         weight_path = Path(weight)
         self.weight = weight_path
         self.device = torch.device("cpu")
-        self.fp16 = False
         self.dynamic = True
-        self.nhwc = False
-        self.stride = 32
         self.task = "detect"
         self.artifact: YOLOArtifact | None = None
         self.config = None
         self.session = None
-        self.model = None
         self._compiled_models: dict[ImageShape, object] = {}
         self._build_graph: Any = None
 
         try:
+            from max.dtype import DType
             from max.driver import Device
             from max.engine import InferenceSession
             from molo.backends.max.pipelines.architectures.yolo.artifact import (
@@ -63,6 +60,7 @@ class MaxBackend(BaseBackend):
             size=cast(YOLOSize, model_id.removeprefix(architecture.prefix)),
             nc=len(self.names),
         )
+        self.fp16 = self.config.dtype == DType.float16
         self.imgsz = self.config.input_size
         self.metadata = {
             "batch": self.batch,
@@ -98,38 +96,13 @@ class MaxBackend(BaseBackend):
         self.model = model
         return model
 
-    def forward(self, im):
-        import numpy as np
-        import torch
-
-        if isinstance(im, torch.Tensor):
-            im = im.detach().cpu().numpy()
-
-        im = np.asarray(im)
-        if im.ndim == 3:
-            im = np.expand_dims(im, axis=0)
-        if im.ndim != 4:
-            raise ValueError(
-                f"Expected BCHW input for MAX backend, got shape {im.shape}."
-            )
-        if im.shape[0] != 1:
-            raise ValueError("MAX backend currently supports batch size 1 only.")
-        input_h, input_w = im.shape[2], im.shape[3]
-        model = self._ensure_model_for_shape(input_h, input_w)
-
-        im = np.ascontiguousarray(
-            im, dtype=np.float16 if getattr(self, "fp16", False) else np.float32
-        )
-        outputs = model.execute(im)
-        if len(outputs) != 1:
-            raise ValueError("MAX graph returned an unexpected number of outputs.")
-
-        output = outputs[0]
-        if hasattr(output, "__dlpack__"):
-            output = np.from_dlpack(output)
-        else:
-            output = np.asarray(output)
-        return torch.from_numpy(output).to(self.device)
+    def forward(self, im: torch.Tensor) -> torch.Tensor:
+        assert im.ndim == 4, "Expected BCHW input"
+        assert im.shape[0] == 1, "MAX backend supports batch size 1 only"
+        model = self._ensure_model_for_shape(im.shape[2], im.shape[3])
+        outputs = model.execute(np.ascontiguousarray(im.numpy()))
+        assert len(outputs) == 1, "Expected one MAX graph output"
+        return torch.from_dlpack(outputs[0])
 
 
 def install_max_backend() -> None:
