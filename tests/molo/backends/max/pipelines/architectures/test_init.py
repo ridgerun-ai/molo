@@ -9,7 +9,7 @@ from molo.backends.max.pipelines import architectures
 class FactoryTest(unittest.TestCase):
     def test_registration(self):
         architecture = architectures.Architecture(
-            "another_", {"small", "large"}, Mock(), Mock(), Mock()
+            "another_", {"small", "large"}, Mock(), Mock()
         )
         with patch.object(architectures, "_ARCHITECTURES", {}):
             architectures.register_architecture(architecture)
