@@ -1,3 +1,3 @@
-from .model import YOLO11, YOLO11Config
+from .model import YOLO11
 
-__all__ = ["YOLO11", "YOLO11Config"]
+__all__ = ["YOLO11"]

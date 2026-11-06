@@ -1,7 +1,7 @@
 import unittest
 import torch
 from ultralytics.nn.modules.block import SPPF as Reference
-from molo.backends.max.pipelines.architectures.yolo11.layers.sppf import SPPF
+from molo.backends.max.pipelines.architectures.yolo.layers.sppf import SPPF
 from tests.unit.helpers import REF, compare
 
 

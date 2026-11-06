@@ -3,7 +3,7 @@
 from max.graph import DeviceRef, TensorValue
 from max.nn import Module
 from .attention import Attention
-from .conv import Conv
+from ...yolo.layers.conv import Conv
 
 
 class PSABlock(Module):

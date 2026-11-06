@@ -1,6 +1,6 @@
 import unittest
 from torch import nn
-from molo.backends.max.pipelines.architectures.yolo11.layers.upsample import (
+from molo.backends.max.pipelines.architectures.yolo.layers.upsample import (
     UpsampleNearest2x,
 )
 from tests.unit.helpers import compare

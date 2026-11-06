@@ -3,9 +3,9 @@
 from max.graph import DeviceRef, TensorValue, ops
 from max.nn import Module
 
-from .bottleneck import Bottleneck
+from ...yolo.layers.bottleneck import Bottleneck
 from .c3k import C3k
-from .conv import Conv
+from ...yolo.layers.conv import Conv
 
 
 class C3k2(Module):
@@ -43,7 +43,7 @@ class C3k2(Module):
         self.cv2 = Conv(
             (2 + repeats) * c, out_channels, device=device, name=f"{prefix}cv2"
         )
-        self.m = []
+        blocks = []
         for i in range(repeats):
             if c3k:
                 block = C3k(
@@ -64,7 +64,8 @@ class C3k2(Module):
                     device=device,
                     name=f"{prefix}m.{i}",
                 )
-            self.m.append(block)
+            blocks.append(block)
+        self.m = blocks
 
     def __call__(self, x: TensorValue) -> TensorValue:
         """Apply the split paths and fuse all intermediate outputs."""

@@ -3,48 +3,49 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
-from .model_config import YOLO11_SIZES, YOLO11Size
-from typing import cast
 
 _METADATA_KEY = "__molo_metadata__"
 
 
-def save_artifact(
-    path: str | Path, weights: dict[str, np.ndarray], names: dict[int, str], size: str
-) -> None:
+@dataclass
+class YOLOArtifact:
+    """Converted MAX weights and their model metadata."""
+
+    model_id: str
+    class_names: list[str]
+    weights: dict[str, np.ndarray]
+
+
+def save_artifact(path: str | Path, artifact: YOLOArtifact) -> None:
     """Write weights and class names to a single .max file."""
     path = Path(path)
     metadata = {
-        "model_id": f"yolo11{size}",
-        "names": {str(k): v for k, v in names.items()},
+        "model_id": artifact.model_id,
+        "class_names": artifact.class_names,
     }
     payload = json.dumps(metadata, ensure_ascii=False).encode("utf-8")
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("wb") as output:
         np.savez(
             output,
-            **weights,  # ty: ignore[invalid-argument-type]
+            **artifact.weights,  # ty: ignore[invalid-argument-type]
             **{_METADATA_KEY: np.frombuffer(payload, dtype=np.uint8)},
         )
 
 
-def load_artifact(
-    path: str | Path,
-) -> tuple[dict[str, np.ndarray], dict[int, str], YOLO11Size]:
+def load_artifact(path: str | Path) -> YOLOArtifact:
     """Load a MOLO .max file without reading any source checkpoint."""
     path = Path(path)
     try:
         with np.load(path, allow_pickle=False) as archive:
             metadata = json.loads(archive[_METADATA_KEY].tobytes().decode("utf-8"))
-            model_id = metadata.get("model_id")
-            if model_id not in {f"yolo11{size}" for size in YOLO11_SIZES}:
-                raise ValueError(f"Unsupported model identifier: {model_id!r}")
-            size = cast(YOLO11Size, model_id.removeprefix("yolo11"))
-            names = {int(k): str(v) for k, v in metadata["names"].items()}
+            model_id = metadata["model_id"]
+            class_names = metadata["class_names"]
             weights = {
                 key: archive[key] for key in archive.files if key != _METADATA_KEY
             }
@@ -56,4 +57,4 @@ def load_artifact(
         json.JSONDecodeError,
     ) as exc:
         raise ValueError(f"Invalid MOLO .max artifact: {path}") from exc
-    return weights, names, size
+    return YOLOArtifact(model_id=model_id, class_names=class_names, weights=weights)

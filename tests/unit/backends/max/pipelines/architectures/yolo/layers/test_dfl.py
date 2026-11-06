@@ -6,7 +6,7 @@ from max.driver import Buffer
 from max.dtype import DType
 from max.engine import InferenceSession
 from max.graph import Graph, TensorType
-from molo.backends.max.pipelines.architectures.yolo11.layers.dfl import DFL
+from molo.backends.max.pipelines.architectures.yolo.layers.dfl import DFL
 from tests.unit.helpers import DEVICE, REF
 
 

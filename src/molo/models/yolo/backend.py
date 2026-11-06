@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from molo.backends.max.pipelines.architectures.yolo.config import ImageShape
+    from molo.backends.max.pipelines.architectures.yolo.artifact import YOLOArtifact
+
 from ultralytics.nn.autobackend import AutoBackend
 from ultralytics.nn.backends.base import BaseBackend
 
@@ -24,31 +30,39 @@ class MaxBackend(BaseBackend):
         self.nhwc = False
         self.stride = 32
         self.task = "detect"
-        self.weights_registry = {}
+        self.artifact: YOLOArtifact | None = None
         self.config = None
         self.session = None
         self.model = None
-        self._compiled_models: dict[tuple[int, int], object] = {}
-        self._build_graph = None
+        self._compiled_models: dict[ImageShape, object] = {}
+        self._build_graph: Any = None
 
         try:
             from max.driver import Device
             from max.engine import InferenceSession
-            from molo.backends.max.pipelines.architectures.yolo11.artifact import (
+            from molo.backends.max.pipelines.architectures.yolo.artifact import (
                 load_artifact,
             )
-            from molo.backends.max.pipelines.architectures.yolo11.model import (
-                YOLO11Config,
-                build_graph,
+            from molo.backends.max.pipelines.architectures import get_architecture
+            from molo.backends.max.pipelines.architectures.yolo.config import (
+                YOLOConfig,
+                YOLOSize,
             )
         except ImportError as exc:
             raise ImportError(
                 "The MAX runtime is required to load .max models."
             ) from exc
 
-        self.weights_registry, self.names, size = load_artifact(weight_path)
-        self._build_graph = build_graph
-        self.config = YOLO11Config(size=size, nc=len(self.names))
+        artifact = load_artifact(weight_path)
+        self.artifact = artifact
+        self.names = dict(enumerate(artifact.class_names))
+        model_id = artifact.model_id
+        architecture = get_architecture(model_id)
+        self._build_graph = architecture.build_graph
+        self.config = YOLOConfig(
+            size=cast(YOLOSize, model_id.removeprefix(architecture.prefix)),
+            nc=len(self.names),
+        )
         self.imgsz = self.config.input_size
         self.metadata = {
             "batch": self.batch,
@@ -62,18 +76,24 @@ class MaxBackend(BaseBackend):
         return self
 
     def _ensure_model_for_shape(self, input_height: int, input_width: int):
-        if self.session is None or self.config is None or self._build_graph is None:
+        from molo.backends.max.pipelines.architectures.yolo.config import ImageShape
+
+        if (
+            self.session is None
+            or self.config is None
+            or self.artifact is None
+            or self._build_graph is None
+        ):
             raise RuntimeError("MAX model has not been loaded.")
 
-        shape_key = (int(input_height), int(input_width))
+        shape_key = ImageShape(height=int(input_height), width=int(input_width))
         model = self._compiled_models.get(shape_key)
         if model is None:
             graph = self._build_graph(
                 self.config,
-                self.weights_registry,
                 input_shape=shape_key,
             )
-            model = self.session.load(graph, weights_registry=self.weights_registry)
+            model = self.session.load(graph, weights_registry=self.artifact.weights)
             self._compiled_models[shape_key] = model
         self.model = model
         return model

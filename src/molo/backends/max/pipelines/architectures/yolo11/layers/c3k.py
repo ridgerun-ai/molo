@@ -3,8 +3,8 @@
 from max.graph import DeviceRef, TensorValue, ops
 from max.nn import Module
 
-from .bottleneck import Bottleneck
-from .conv import Conv
+from ...yolo.layers.bottleneck import Bottleneck
+from ...yolo.layers.conv import Conv
 
 
 class C3k(Module):

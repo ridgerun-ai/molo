@@ -1,6 +1,6 @@
 import unittest
 from ultralytics.nn.modules.block import Bottleneck as Reference
-from molo.backends.max.pipelines.architectures.yolo11.layers.bottleneck import (
+from molo.backends.max.pipelines.architectures.yolo.layers.bottleneck import (
     Bottleneck,
 )
 from tests.unit.helpers import REF, compare

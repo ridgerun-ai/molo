@@ -2,7 +2,7 @@
 
 from max.graph import DeviceRef, TensorValue, ops
 from max.nn import Module
-from .conv import Conv
+from ...yolo.layers.conv import Conv
 
 
 class Attention(Module):
