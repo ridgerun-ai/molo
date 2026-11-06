@@ -1,7 +1,7 @@
 """YOLO11 C3k2 module for MAX Graph inference."""
 
 from max.graph import DeviceRef, TensorValue, ops
-from max.nn import Module
+from max.nn import LayerList, Module
 
 from ...yolo.layers.bottleneck import Bottleneck
 from .c3k import C3k
@@ -65,7 +65,7 @@ class C3k2(Module):
                     name=f"{prefix}m.{i}",
                 )
             blocks.append(block)
-        self.m = blocks
+        self.m = LayerList(blocks)
 
     def __call__(self, x: TensorValue) -> TensorValue:
         """Apply the split paths and fuse all intermediate outputs."""

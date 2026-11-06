@@ -3,7 +3,7 @@
 import numpy as np
 from max.dtype import DType
 from max.graph import DeviceRef, TensorValue, ops
-from max.nn import Conv2d, Module
+from max.nn import Conv2d, LayerList, Module
 from .conv import Conv
 from .dfl import DFL
 
@@ -71,20 +71,24 @@ class Detect(Module):
                 )
 
             box_branches.append(
-                [
-                    conv(channels, box_width, 3, f"cv2.{i}.0"),
-                    conv(box_width, box_width, 3, f"cv2.{i}.1"),
-                    output_conv(box_width, 4 * self.bins, f"cv2.{i}.2"),
-                ]
+                LayerList(
+                    [
+                        conv(channels, box_width, 3, f"cv2.{i}.0"),
+                        conv(box_width, box_width, 3, f"cv2.{i}.1"),
+                        output_conv(box_width, 4 * self.bins, f"cv2.{i}.2"),
+                    ]
+                )
             )
             class_branches.append(
-                self._classification_branch(
-                    channels, class_width, num_classes, i, conv, output_conv
+                LayerList(
+                    self._classification_branch(
+                        channels, class_width, num_classes, i, conv, output_conv
+                    )
                 )
             )
 
-        self.box_branches = box_branches
-        self.class_branches = class_branches
+        self.box_branches = LayerList(box_branches)
+        self.class_branches = LayerList(class_branches)
 
     def _classification_branch(
         self, channels, class_width, num_classes, index, conv, output_conv

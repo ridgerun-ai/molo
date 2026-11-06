@@ -32,6 +32,10 @@ class DetectTest(unittest.TestCase):
                     if not k.endswith("num_batches_tracked") and k != "dfl.conv.weight"
                 }
                 model = model_type(classes, channels, device=REF, name="layer")
+                self.assertEqual(
+                    {weight.name for weight in model.raw_state_dict().values()},
+                    set(weights),
+                )
                 with Graph(
                     "detect_test",
                     input_types=[TensorType(DType.float32, s, REF) for s in shapes],

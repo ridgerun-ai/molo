@@ -43,6 +43,8 @@ def compare(model, reference, shape, seed=17, prefix="layer", atol=1e-5, rtol=3e
         for key, value in reference.state_dict().items()
         if not key.endswith("num_batches_tracked") and key != "dfl.conv.weight"
     }
+    registered_names = {weight.name for weight in model.raw_state_dict().values()}
+    assert registered_names == weights.keys(), registered_names ^ weights.keys()
     with Graph(
         "layer_test", input_types=[TensorType(DType.float32, shape, REF)]
     ) as graph:
