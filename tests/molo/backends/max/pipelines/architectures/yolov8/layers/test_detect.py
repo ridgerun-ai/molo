@@ -1,4 +1,5 @@
 import unittest
+from molo.backends.max.pipelines.architectures.yolo.convert import assign_module
 import numpy as np
 import torch
 from ultralytics.nn.modules.head import Detect as Reference
@@ -26,11 +27,8 @@ class DetectTest(unittest.TestCase):
             with self.subTest(classes=classes, shapes=shapes):
                 reference = prepare(reference_type(nc=classes, ch=channels))
                 reference.stride = torch.tensor([8.0, 16.0, 32.0])
-                weights = {
-                    f"layer.{k}": v.detach().numpy()
-                    for k, v in reference.state_dict().items()
-                    if not k.endswith("num_batches_tracked") and k != "dfl.conv.weight"
-                }
+                weights = {}
+                assign_module(weights, "layer", reference)
                 model = model_type(classes, channels, device=REF, name="layer")
                 self.assertEqual(
                     {weight.name for weight in model.raw_state_dict().values()},

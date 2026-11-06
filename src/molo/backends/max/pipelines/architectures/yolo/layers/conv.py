@@ -4,15 +4,13 @@ from max.dtype import DType
 from max.graph import DeviceRef, TensorValue, ops
 from max.nn import Conv2d, Module
 
-from molo.backends.max.nn.norm.batch_norm import BatchNorm
-
 
 class Conv(Module):
-    """Convolution, batch normalization, and optional SiLU.
+    """Fused convolution with bias and optional SiLU.
 
     Inputs and outputs use channel-first ``(N, C, H, W)`` layout. Convolution
     weights use PyTorch's ``(out_channels, in_channels / groups, H, W)`` layout.
-    Batch normalization uses stored running statistics for inference.
+    Batch normalization is folded into the convolution during conversion.
 
     Args:
         in_channels: Number of input channels.
@@ -23,7 +21,6 @@ class Conv(Module):
         groups: Number of convolution groups.
         dilation: Convolution dilation.
         activation: Whether to apply SiLU.
-        eps: Batch normalization epsilon.
         device: Target device.
     """
 
@@ -37,7 +34,6 @@ class Conv(Module):
         groups: int = 1,
         dilation: int = 1,
         activation: bool = True,
-        eps: float = 1e-3,
         device: DeviceRef = DeviceRef.GPU(),
         name: str | None = None,
     ) -> None:
@@ -54,16 +50,13 @@ class Conv(Module):
             dilation=dilation,
             num_groups=groups,
             device=device,
-            has_bias=False,
+            has_bias=True,
             permute=True,
             name=f"{name}.conv" if name else "conv",
-        )
-        self.bn = BatchNorm(
-            out_channels, eps=eps, device=device, name=f"{name}.bn" if name else None
         )
         self.activation = activation
 
     def __call__(self, x: TensorValue) -> TensorValue:
-        """Apply convolution and normalization, followed by optional SiLU."""
-        x = self.bn(self.conv(x))
+        """Apply fused convolution followed by optional SiLU."""
+        x = self.conv(x)
         return ops.silu(x) if self.activation else x

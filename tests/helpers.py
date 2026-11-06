@@ -1,5 +1,7 @@
 """Helpers for comparing MAX modules with Ultralytics on CPU."""
 
+from molo.backends.max.pipelines.architectures.yolo.convert import assign_module
+
 import numpy as np
 import torch
 from max.driver import CPU, Buffer
@@ -38,11 +40,8 @@ def prepare(reference, seed=123, eps=0.001):
 def compare(model, reference, shape, seed=17, prefix="layer", atol=1e-5, rtol=3e-5):
     """Compile and compare a single MAX module with its PyTorch counterpart."""
     reference = prepare(reference)
-    weights = {
-        f"{prefix}.{key}" if prefix else key: value.detach().cpu().numpy()
-        for key, value in reference.state_dict().items()
-        if not key.endswith("num_batches_tracked") and key != "dfl.conv.weight"
-    }
+    weights = {}
+    assign_module(weights, prefix, reference)
     registered_names = {weight.name for weight in model.raw_state_dict().values()}
     assert registered_names == weights.keys(), registered_names ^ weights.keys()
     with Graph(

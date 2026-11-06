@@ -29,6 +29,27 @@ class ConvertTest(unittest.TestCase):
             weights["layer.weight"], module.weight.detach().numpy()
         )
 
+    def test_fused_convolution_weights(self):
+        from ultralytics.nn.modules.conv import Conv
+        from tests.helpers import prepare
+
+        module = prepare(Conv(3, 8, 3))
+        x = torch.randn(1, 3, 5, 7)
+        weights = {}
+        assign_module(weights, "layer", module)
+        self.assertEqual(set(weights), {"layer.conv.weight", "layer.conv.bias"})
+        actual = torch.nn.functional.silu(
+            torch.nn.functional.conv2d(
+                x,
+                torch.from_numpy(weights["layer.conv.weight"]),
+                torch.from_numpy(weights["layer.conv.bias"]),
+                padding=1,
+            )
+        )
+        with torch.no_grad():
+            torch.testing.assert_close(actual, module(x))
+        self.assertTrue(hasattr(module, "bn"))
+
     def test_dispatch(self):
         for prefix in ("yolo11", "yolov8", "another_architecture"):
             model_id = f"{prefix}n"
