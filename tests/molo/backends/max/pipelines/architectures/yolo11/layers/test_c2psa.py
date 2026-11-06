@@ -1,7 +1,7 @@
 import unittest
 from ultralytics.nn.modules.block import C2PSA as Reference
 from molo.backends.max.pipelines.architectures.yolo11.layers.c2psa import C2PSA
-from tests.unit.helpers import REF, compare
+from tests.helpers import REF, compare
 
 
 class C2PSATest(unittest.TestCase):

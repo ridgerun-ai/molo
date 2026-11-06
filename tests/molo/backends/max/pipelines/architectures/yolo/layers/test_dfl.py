@@ -7,7 +7,7 @@ from max.dtype import DType
 from max.engine import InferenceSession
 from max.graph import Graph, TensorType
 from molo.backends.max.pipelines.architectures.yolo.layers.dfl import DFL
-from tests.unit.helpers import DEVICE, REF
+from tests.helpers import DEVICE, REF
 
 
 class DFLTest(unittest.TestCase):

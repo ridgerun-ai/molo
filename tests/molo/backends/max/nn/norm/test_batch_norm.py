@@ -3,7 +3,7 @@
 import unittest
 import torch
 from molo.backends.max.nn.norm.batch_norm import BatchNorm
-from tests.unit.helpers import REF, compare
+from tests.helpers import REF, compare
 
 
 class BatchNormTest(unittest.TestCase):

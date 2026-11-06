@@ -1,7 +1,7 @@
 import unittest
 from ultralytics.nn.modules.block import Attention as Reference
 from molo.backends.max.pipelines.architectures.yolo11.layers.attention import Attention
-from tests.unit.helpers import REF, compare
+from tests.helpers import REF, compare
 
 
 class AttentionTest(unittest.TestCase):

@@ -1,7 +1,7 @@
 import unittest
 from ultralytics.nn.modules.conv import Conv as Reference
 from molo.backends.max.pipelines.architectures.yolo.layers.conv import Conv
-from tests.unit.helpers import REF, compare
+from tests.helpers import REF, compare
 
 
 class ConvTest(unittest.TestCase):

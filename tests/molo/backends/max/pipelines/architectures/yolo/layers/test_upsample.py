@@ -3,7 +3,7 @@ from torch import nn
 from molo.backends.max.pipelines.architectures.yolo.layers.upsample import (
     UpsampleNearest2x,
 )
-from tests.unit.helpers import compare
+from tests.helpers import compare
 
 
 class UpsampleTest(unittest.TestCase):

@@ -1,7 +1,7 @@
 import unittest
 from ultralytics.nn.modules.block import C3k2 as Reference
 from molo.backends.max.pipelines.architectures.yolo11.layers.c3k2 import C3k2
-from tests.unit.helpers import REF, compare
+from tests.helpers import REF, compare
 
 
 class C3k2Test(unittest.TestCase):

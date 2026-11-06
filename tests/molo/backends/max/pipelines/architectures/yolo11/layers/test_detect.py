@@ -7,7 +7,7 @@ from max.dtype import DType
 from max.engine import InferenceSession
 from max.graph import Graph, TensorType
 from molo.backends.max.pipelines.architectures.yolo11.layers.detect import YOLO11Detect
-from tests.unit.helpers import DEVICE, REF, prepare
+from tests.helpers import DEVICE, REF, prepare
 
 
 class DetectTest(unittest.TestCase):
