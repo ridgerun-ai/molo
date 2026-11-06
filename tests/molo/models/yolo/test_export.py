@@ -67,7 +67,7 @@ class ExportTest(unittest.TestCase):
                 output.unlink(missing_ok=True)
 
     def test_loaded_model_export(self):
-        for source in "yolo11n.yaml":
+        for source in ("yolo11n.yaml", "yolov8n.pt"):
             with self.subTest(source=source):
                 self.check_loaded_model_export(source)
 

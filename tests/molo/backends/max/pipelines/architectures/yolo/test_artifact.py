@@ -25,7 +25,7 @@ class ArtifactTest(unittest.TestCase):
     def test_model_identifiers(self):
         for model_id in (
             f"{family}{size}"
-            for family in ("yolo11", "another_architecture")
+            for family in ("yolo11", "yolov8", "another_architecture")
             for size in ("n", "s", "m", "l", "x")
         ):
             with self.subTest(model_id=model_id):

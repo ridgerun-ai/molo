@@ -19,6 +19,12 @@ from .yolo.config import ImageShape, YOLOConfig
 from .yolo.artifact import YOLOArtifact
 from .yolo11.model import build_graph as build_yolo11_graph
 from .yolo11.model import YOLO11_SIZES
+from .yolov8.model import (
+    convert_model as convert_yolov8,
+    identify_model as identify_yolov8,
+)
+from .yolov8.model import build_graph as build_yolov8_graph
+from .yolov8.model import YOLOV8_SIZES
 
 
 @dataclass(frozen=True)
@@ -56,5 +62,14 @@ register_architecture(
         sizes=YOLO11_SIZES,
         build_graph=build_yolo11_graph,
         convert_model=convert_yolo11,
+    ),
+)
+register_architecture(
+    Architecture(
+        prefix="yolov8",
+        identify_model=identify_yolov8,
+        sizes=YOLOV8_SIZES,
+        build_graph=build_yolov8_graph,
+        convert_model=convert_yolov8,
     ),
 )

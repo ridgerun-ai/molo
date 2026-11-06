@@ -1,0 +1,50 @@
+"""YOLOv8 C2f block."""
+
+from max.graph import DeviceRef, TensorValue, ops
+from max.nn import Module
+
+from ...yolo.layers.bottleneck import Bottleneck
+from ...yolo.layers.conv import Conv
+
+
+class C2f(Module):
+    """Split, process and concatenate features before a final convolution."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        repeats: int = 1,
+        shortcut: bool = False,
+        groups: int = 1,
+        expansion: float = 0.5,
+        device: DeviceRef = DeviceRef.GPU(),
+        name: str | None = None,
+    ) -> None:
+        super().__init__()
+        self.hidden_channels = int(out_channels * expansion)
+        prefix = f"{name}." if name else ""
+        c = self.hidden_channels
+        self.cv1 = Conv(in_channels, 2 * c, device=device, name=f"{prefix}cv1")
+        self.cv2 = Conv(
+            (2 + repeats) * c, out_channels, device=device, name=f"{prefix}cv2"
+        )
+        self.m = [
+            Bottleneck(
+                c,
+                c,
+                shortcut=shortcut,
+                groups=groups,
+                expansion=1.0,
+                device=device,
+                name=f"{prefix}m.{i}",
+            )
+            for i in range(repeats)
+        ]
+
+    def __call__(self, x: TensorValue) -> TensorValue:
+        c = self.hidden_channels
+        parts = ops.split(self.cv1(x), [c, c], axis=1)
+        for block in self.m:
+            parts.append(block(parts[-1]))
+        return self.cv2(ops.concat(parts, axis=1))

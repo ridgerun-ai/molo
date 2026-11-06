@@ -30,7 +30,7 @@ class ConvertTest(unittest.TestCase):
         )
 
     def test_dispatch(self):
-        for prefix in ("yolo11", "another_architecture"):
+        for prefix in ("yolo11", "yolov8", "another_architecture"):
             model_id = f"{prefix}n"
             with self.subTest(model_id=model_id):
                 model = Mock(
