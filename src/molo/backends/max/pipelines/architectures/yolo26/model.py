@@ -157,6 +157,12 @@ def build_graph(
 def convert_model(model: DetectionModel) -> YOLOArtifact:
     """Convert a loaded model to an in-memory MAX artifact."""
     config = identify_model(model)
+    if not model.model[-1].end2end:
+        raise ValueError("YOLO26 MAX export requires end2end=True")
+    if model.model[-1].max_det != 300:
+        raise ValueError("YOLO26 MAX export requires max_det=300")
+    if model.model[-1].agnostic_nms:
+        raise ValueError("YOLO26 MAX export requires agnostic_nms=False")
     model = deepcopy(model).eval()
     model.model[-1].fuse()
     weights = {}

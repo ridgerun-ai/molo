@@ -99,6 +99,44 @@ class ExportTest(unittest.TestCase):
         finally:
             artifact.unlink(missing_ok=True)
 
+    def test_yolo26_rejects_non_end_to_end_export(self):
+        source = YOLO("yolo26n.yaml")
+        with (
+            patch(
+                "molo.backends.max.pipelines.architectures.yolo.convert.save_artifact"
+            ) as save_artifact,
+            self.assertRaisesRegex(ValueError, "requires end2end=True"),
+        ):
+            source.export(format="max", imgsz=64, end2end=False)
+        save_artifact.assert_not_called()
+
+    def test_yolo26_rejects_non_default_selection(self):
+        for options, message in (
+            ({"max_det": 10}, "requires max_det=300"),
+            ({"max_det": 400}, "requires max_det=300"),
+            ({"agnostic_nms": True}, "requires agnostic_nms=False"),
+        ):
+            with self.subTest(options=options):
+                source = YOLO("yolo26n.yaml")
+                with (
+                    patch(
+                        "molo.backends.max.pipelines.architectures.yolo.convert.save_artifact"
+                    ) as save_artifact,
+                    self.assertRaisesRegex(ValueError, message),
+                ):
+                    source.export(format="max", imgsz=64, **options)
+                save_artifact.assert_not_called()
+
+    def test_yolo26_default_export_with_small_image(self):
+        source = YOLO("yolo26n.yaml")
+        with patch(
+            "molo.backends.max.pipelines.architectures.yolo.convert.save_artifact"
+        ) as save_artifact:
+            source.export(format="max", imgsz=64)
+        artifact = save_artifact.call_args.args[1]
+        self.assertEqual(artifact.model_id, "yolo26n")
+        self.assertIn("model.23.one2one_cv2.0.2.weight", artifact.weights)
+
     def test_yolo26_export_and_prediction(self):
         artifact = Path("yolo26_verified.max")
         if artifact.exists():

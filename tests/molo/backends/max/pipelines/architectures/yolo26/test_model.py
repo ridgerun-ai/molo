@@ -88,6 +88,36 @@ class ModelTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported yolo26 size"):
             identify_model(reference)
 
+    def test_rejects_non_end_to_end_model(self):
+        reference = cast(DetectionModel, YOLO("yolo26n.yaml").model).eval()
+        reference.model[-1].end2end = False
+        with (
+            patch(
+                "molo.backends.max.pipelines.architectures.yolo26.model.deepcopy"
+            ) as copy_model,
+            self.assertRaisesRegex(ValueError, "requires end2end=True"),
+        ):
+            convert_model(reference)
+        copy_model.assert_not_called()
+
+    def test_rejects_non_default_selection(self):
+        for option, value, message in (
+            ("max_det", 10, "requires max_det=300"),
+            ("max_det", 400, "requires max_det=300"),
+            ("agnostic_nms", True, "requires agnostic_nms=False"),
+        ):
+            with self.subTest(option=option, value=value):
+                reference = cast(DetectionModel, YOLO("yolo26n.yaml").model).eval()
+                setattr(reference.model[-1], option, value)
+                with (
+                    patch(
+                        "molo.backends.max.pipelines.architectures.yolo26.model.deepcopy"
+                    ) as copy_model,
+                    self.assertRaisesRegex(ValueError, message),
+                ):
+                    convert_model(reference)
+                copy_model.assert_not_called()
+
     def test_strict_loading_and_precision(self):
         reference = cast(DetectionModel, YOLO("yolo26n.yaml").model).eval()
         config = identify_model(reference)
