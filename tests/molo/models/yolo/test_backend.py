@@ -140,10 +140,10 @@ class BackendTest(unittest.TestCase):
                 )
                 with (
                     patch(
-                        "molo.backends.max.pipelines.architectures.yolo.artifact.load_artifact",
+                        "molo.models.yolo.backend.load_artifact",
                         return_value=artifact,
                     ),
-                    patch("max.engine.InferenceSession"),
+                    patch("molo.models.yolo.backend.InferenceSession"),
                 ):
                     backend = MaxBackend(f"{model_id}.max", device=torch.device("cpu"))
                 assert backend.config is not None
