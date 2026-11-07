@@ -36,7 +36,8 @@ subprocess.run(
     ],
     check=True,
 )
-weights, names = load_artifact(artifact)
+weights, names, size = load_artifact(artifact)
+assert size == "n"
 assert len(names) == 80
 assert "layer0.conv.weight" in weights
 print("PASS MAX export produces artifact", flush=True)

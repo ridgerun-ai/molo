@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from math import ceil
 
 from max import nn
 from max.dtype import DType
@@ -13,10 +14,12 @@ from .layers.conv import Conv
 from .layers.detect import Detect
 from .layers.sppf import SPPF
 from .layers.upsample import UpsampleNearest2x
+from .model_config import YOLO11_SIZES, YOLO11Size
 
 
 @dataclass(frozen=True)
 class YOLO11Config:
+    size: YOLO11Size = "n"
     nc: int = 80
     input_size: int = 640
     reg_max: int = 16
@@ -24,117 +27,71 @@ class YOLO11Config:
     device: DeviceRef = DeviceRef.CPU()
 
 
-class YOLO11Nano(nn.Module):
+class YOLO11(nn.Module):
+    """YOLO11 detection model, parameterized by size."""
+
     def __init__(self, config: YOLO11Config, input_shape: tuple[int, int]) -> None:
         super().__init__()
         self.config = config
+        try:
+            scale = YOLO11_SIZES[config.size]
+        except KeyError as exc:
+            raise ValueError(f"Unsupported YOLO11 size: {config.size!r}") from exc
         if config.dtype != DType.float32 or config.reg_max != 16:
-            raise ValueError("YOLO11Nano currently supports float32 and reg_max=16")
+            raise ValueError("YOLO11 currently supports float32 and reg_max=16")
 
-        self.layer0 = Conv(
-            3, 16, kernel_size=3, stride=2, device=config.device, name="layer0"
-        )
-        self.layer1 = Conv(
-            16, 32, kernel_size=3, stride=2, device=config.device, name="layer1"
-        )
-        self.layer2 = C3k2(
-            32,
-            64,
-            repeats=1,
-            c3k=False,
-            expansion=0.25,
-            device=config.device,
-            name="layer2",
-        )
-        self.layer3 = Conv(
-            64, 64, kernel_size=3, stride=2, device=config.device, name="layer3"
-        )
-        self.layer4 = C3k2(
-            64,
-            128,
-            repeats=1,
-            c3k=False,
-            expansion=0.25,
-            device=config.device,
-            name="layer4",
-        )
-        self.layer5 = Conv(
-            128, 128, kernel_size=3, stride=2, device=config.device, name="layer5"
-        )
-        self.layer6 = C3k2(
-            128,
-            128,
-            repeats=1,
-            c3k=True,
-            expansion=0.5,
-            device=config.device,
-            name="layer6",
-        )
-        self.layer7 = Conv(
-            128, 256, kernel_size=3, stride=2, device=config.device, name="layer7"
-        )
-        self.layer8 = C3k2(
-            256,
-            256,
-            repeats=1,
-            c3k=True,
-            expansion=0.5,
-            device=config.device,
-            name="layer8",
-        )
-        self.layer9 = SPPF(256, 256, kernel_size=5, device=config.device, name="layer9")
+        def channels(base: int) -> int:
+            if base == config.nc:
+                return base
+            return ceil(min(base, scale.max_channels) * scale.width / 8) * 8
+
+        repeats = max(round(2 * scale.depth), 1)
+        c64, c128, c256, c512, c1024 = (channels(c) for c in (64, 128, 256, 512, 1024))
+        device = config.device
+
+        def down(ci: int, co: int, index: int) -> Conv:
+            return Conv(
+                ci, co, kernel_size=3, stride=2, device=device, name=f"layer{index}"
+            )
+
+        def block(
+            ci: int, co: int, index: int, *, c3k: bool = False, expansion: float = 0.5
+        ) -> C3k2:
+            return C3k2(
+                ci,
+                co,
+                repeats=repeats,
+                c3k=c3k or scale.c3k,
+                expansion=expansion,
+                device=device,
+                name=f"layer{index}",
+            )
+
+        self.layer0 = down(3, c64, 0)
+        self.layer1 = down(c64, c128, 1)
+        self.layer2 = block(c128, c256, 2, expansion=0.25)
+        self.layer3 = down(c256, c256, 3)
+        self.layer4 = block(c256, c512, 4, expansion=0.25)
+        self.layer5 = down(c512, c512, 5)
+        self.layer6 = block(c512, c512, 6, c3k=True)
+        self.layer7 = down(c512, c1024, 7)
+        self.layer8 = block(c1024, c1024, 8, c3k=True)
+        self.layer9 = SPPF(c1024, c1024, kernel_size=5, device=device, name="layer9")
         self.layer10 = C2PSA(
-            256, 256, repeats=1, expansion=0.5, device=config.device, name="layer10"
+            c1024, c1024, repeats=repeats, expansion=0.5, device=device, name="layer10"
         )
-
         self.upsample0 = UpsampleNearest2x()
-        self.layer13 = C3k2(
-            256 + 128,
-            128,
-            repeats=1,
-            c3k=False,
-            expansion=0.5,
-            device=config.device,
-            name="layer13",
-        )
+        self.layer13 = block(c1024 + c512, c512, 13)
         self.upsample1 = UpsampleNearest2x()
-        self.layer16 = C3k2(
-            128 + 128,
-            64,
-            repeats=1,
-            c3k=False,
-            expansion=0.5,
-            device=config.device,
-            name="layer16",
-        )
-        self.layer17 = Conv(
-            64, 64, kernel_size=3, stride=2, device=config.device, name="layer17"
-        )
-        self.layer19 = C3k2(
-            64 + 128,
-            128,
-            repeats=1,
-            c3k=False,
-            expansion=0.5,
-            device=config.device,
-            name="layer19",
-        )
-        self.layer20 = Conv(
-            128, 128, kernel_size=3, stride=2, device=config.device, name="layer20"
-        )
-        self.layer22 = C3k2(
-            128 + 256,
-            256,
-            repeats=1,
-            c3k=True,
-            expansion=0.5,
-            device=config.device,
-            name="layer22",
-        )
+        self.layer16 = block(c512 + c512, c256, 16)
+        self.layer17 = down(c256, c256, 17)
+        self.layer19 = block(c256 + c512, c512, 19)
+        self.layer20 = down(c512, c512, 20)
+        self.layer22 = block(c512 + c1024, c1024, 22, c3k=True)
         self.detect = Detect(
             num_classes=config.nc,
-            in_channels=(64, 128, 256),
-            device=config.device,
+            in_channels=(c256, c512, c1024),
+            device=device,
             name="detect",
         )
 
@@ -176,8 +133,8 @@ def build_graph(
         shape=[1, 3, height, width],
         device=config.device,
     )
-    with Graph("yolo11n_detect", input_types=[input_type]) as graph:
-        model = YOLO11Nano(config, input_shape=(height, width))
+    with Graph(f"yolo11{config.size}_detect", input_types=[input_type]) as graph:
+        model = YOLO11(config, input_shape=(height, width))
         outputs = model(graph.inputs[0].tensor)
         graph.output(outputs)
     return graph
