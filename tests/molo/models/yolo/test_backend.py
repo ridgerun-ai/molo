@@ -22,7 +22,11 @@ class BackendTest(unittest.TestCase):
     def test_prediction_and_graph_cache(self):
         for family in ("yolo11", "yolov8"):
             with self.subTest(family=family):
-                reference = cast(DetectionModel, YOLO(f"{family}n.pt").model).eval()
+                reference = (
+                    cast(DetectionModel, YOLO(f"{family}n.pt").model)
+                    .eval()
+                    .fuse(verbose=False)
+                )
                 artifact = Path(f"{family}_batched.max")
                 if artifact.exists():
                     raise FileExistsError(f"Refusing to overwrite {artifact}")
@@ -97,7 +101,11 @@ class BackendTest(unittest.TestCase):
                 with self.subTest(family=family, reg_max=reg_max):
                     cfg = deepcopy(yaml)
                     cfg["reg_max"] = reg_max
-                    reference = DetectionModel(cfg, nc=3, verbose=False).eval()
+                    reference = (
+                        DetectionModel(cfg, nc=3, verbose=False)
+                        .eval()
+                        .fuse(verbose=False)
+                    )
                     artifact = Path(f"{family}_reg_max_{reg_max}.max")
                     if artifact.exists():
                         raise FileExistsError(f"Refusing to overwrite {artifact}")

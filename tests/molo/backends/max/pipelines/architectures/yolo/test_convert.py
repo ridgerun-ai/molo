@@ -10,6 +10,8 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import torch
+from ultralytics import YOLO
+from ultralytics.nn.tasks import DetectionModel
 
 from molo.backends.max.pipelines.architectures.yolo.convert import (
     assign_module,
@@ -19,17 +21,21 @@ from molo.backends.max.pipelines.architectures.yolo.convert import (
 
 class ConvertTest(unittest.TestCase):
     def test_assign_module(self):
-        module = torch.nn.BatchNorm2d(3)
+        module = torch.nn.Conv2d(3, 8, 3).eval()
         weights = {}
         assign_module(weights, "layer", module)
-        self.assertNotIn("layer.num_batches_tracked", weights)
-        assert module.running_mean is not None
-        np.testing.assert_array_equal(
-            weights["layer.running_mean"], module.running_mean.numpy()
-        )
-        np.testing.assert_array_equal(
-            weights["layer.weight"], module.weight.detach().numpy()
-        )
+        self.assertEqual(set(weights), {"layer.weight", "layer.bias"})
+        for name, value in module.state_dict().items():
+            np.testing.assert_array_equal(
+                weights[f"layer.{name}"], value.detach().numpy()
+            )
+
+    def test_rejects_unfused_module(self):
+        module = torch.nn.BatchNorm2d(3).eval()
+        weights = {}
+        with self.assertRaisesRegex(ValueError, "requires fused weights"):
+            assign_module(weights, "layer", module)
+        self.assertEqual(weights, {})
 
     def test_fused_convolution_weights(self):
         from ultralytics.nn.modules.conv import Conv
@@ -50,12 +56,9 @@ class ConvertTest(unittest.TestCase):
         )
         with torch.no_grad():
             torch.testing.assert_close(actual, module(x))
-        self.assertTrue(hasattr(module, "bn"))
+        self.assertFalse(hasattr(module, "bn"))
 
     def test_rejects_fp16(self):
-        from ultralytics import YOLO
-        from ultralytics.nn.tasks import DetectionModel
-
         for source in ("yolo11n.yaml", "yolov8n.yaml"):
             with self.subTest(source=source):
                 model = cast(DetectionModel, YOLO(source).model).half()
@@ -67,6 +70,24 @@ class ConvertTest(unittest.TestCase):
                 ):
                     convert_model(model, "unsupported.max", model_id=Path(source).stem)
                 save.assert_not_called()
+
+    def test_prepared_model_conversion(self):
+        for family in ("yolo11", "yolov8", "yolo26"):
+            with self.subTest(family=family):
+                reference = (
+                    cast(DetectionModel, YOLO(f"{family}n.yaml").model)
+                    .eval()
+                    .fuse(verbose=False)
+                )
+                with patch(
+                    "molo.backends.max.pipelines.architectures.yolo.convert.save_artifact"
+                ) as save:
+                    convert_model(reference, "prepared.max", model_id=f"{family}n")
+                artifact = save.call_args.args[1]
+                self.assertEqual(artifact.model_id, f"{family}n")
+                self.assertEqual(set(artifact.weights), set(reference.state_dict()))
+                for name, value in reference.state_dict().items():
+                    np.testing.assert_array_equal(artifact.weights[name], value.numpy())
 
     def test_dispatch(self):
         for prefix in ("yolo11", "yolov8", "another_architecture"):

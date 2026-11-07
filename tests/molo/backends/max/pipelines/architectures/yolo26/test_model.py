@@ -27,9 +27,11 @@ class ModelTest(unittest.TestCase):
     def test_sizes_and_weight_structure(self):
         for size, scale in YOLO26_SIZES.items():
             with self.subTest(size=size):
-                reference = cast(
-                    DetectionModel, YOLO(f"yolo26{size}.yaml").model
-                ).eval()
+                reference = (
+                    cast(DetectionModel, YOLO(f"yolo26{size}.yaml").model)
+                    .eval()
+                    .fuse(verbose=False)
+                )
                 config = identify_model(reference)
                 self.assertEqual(config.size, size)
                 self.assertEqual(config.reg_max, 1)
@@ -48,7 +50,6 @@ class ModelTest(unittest.TestCase):
                     artifact.class_names, [reference.names[i] for i in range(config.nc)]
                 )
                 self.assertEqual(set(reference.state_dict()), original_keys)
-                reference.fuse(verbose=False)
                 model = YOLO26(config)
                 self.assertIs(model.config, config)
                 expected_paths = {
@@ -73,7 +74,7 @@ class ModelTest(unittest.TestCase):
 
     def test_custom_classes(self):
         yaml = deepcopy(cast(DetectionModel, YOLO("yolo26n.yaml").model).yaml)
-        reference = DetectionModel(yaml, nc=5, verbose=False).eval()
+        reference = DetectionModel(yaml, nc=5, verbose=False).eval().fuse(verbose=False)
         config = identify_model(reference)
         self.assertEqual(config.nc, 5)
         model = YOLO26(config)
@@ -89,16 +90,18 @@ class ModelTest(unittest.TestCase):
             identify_model(reference)
 
     def test_rejects_non_end_to_end_model(self):
-        reference = cast(DetectionModel, YOLO("yolo26n.yaml").model).eval()
+        reference = (
+            cast(DetectionModel, YOLO("yolo26n.yaml").model).eval().fuse(verbose=False)
+        )
         reference.model[-1].end2end = False
         with (
             patch(
-                "molo.backends.max.pipelines.architectures.yolo26.model.deepcopy"
-            ) as copy_model,
+                "molo.backends.max.pipelines.architectures.yolo26.model.assign_module"
+            ) as extract_weights,
             self.assertRaisesRegex(ValueError, "requires end2end=True"),
         ):
             convert_model(reference)
-        copy_model.assert_not_called()
+        extract_weights.assert_not_called()
 
     def test_rejects_non_default_selection(self):
         for option, value, message in (
@@ -107,19 +110,61 @@ class ModelTest(unittest.TestCase):
             ("agnostic_nms", True, "requires agnostic_nms=False"),
         ):
             with self.subTest(option=option, value=value):
-                reference = cast(DetectionModel, YOLO("yolo26n.yaml").model).eval()
+                reference = (
+                    cast(DetectionModel, YOLO("yolo26n.yaml").model)
+                    .eval()
+                    .fuse(verbose=False)
+                )
                 setattr(reference.model[-1], option, value)
                 with (
                     patch(
-                        "molo.backends.max.pipelines.architectures.yolo26.model.deepcopy"
-                    ) as copy_model,
+                        "molo.backends.max.pipelines.architectures.yolo26.model.assign_module"
+                    ) as extract_weights,
                     self.assertRaisesRegex(ValueError, message),
                 ):
                     convert_model(reference)
-                copy_model.assert_not_called()
+                extract_weights.assert_not_called()
+
+    def test_rejects_unprepared_model(self):
+        for state in ("unfused", "training"):
+            with self.subTest(state=state):
+                reference = cast(DetectionModel, YOLO("yolo26n.yaml").model).eval()
+                if state == "training":
+                    reference.fuse(verbose=False).train()
+                with (
+                    patch(
+                        "molo.backends.max.pipelines.architectures.yolo26.model.assign_module"
+                    ) as extract_weights,
+                    self.assertRaisesRegex(
+                        ValueError, "requires a fused evaluation model"
+                    ),
+                ):
+                    convert_model(reference)
+                extract_weights.assert_not_called()
+
+    def test_prepared_conversion_does_not_fuse(self):
+        reference = (
+            cast(DetectionModel, YOLO("yolo26n.yaml").model).eval().fuse(verbose=False)
+        )
+        with (
+            patch.object(
+                reference,
+                "fuse",
+                side_effect=AssertionError("Model must already be fused"),
+            ),
+            patch.object(
+                reference.model[-1],
+                "fuse",
+                side_effect=AssertionError("Head must already be fused"),
+            ),
+        ):
+            artifact = convert_model(reference)
+        self.assertEqual(set(artifact.weights), set(reference.state_dict()))
 
     def test_strict_loading_and_precision(self):
-        reference = cast(DetectionModel, YOLO("yolo26n.yaml").model).eval()
+        reference = (
+            cast(DetectionModel, YOLO("yolo26n.yaml").model).eval().fuse(verbose=False)
+        )
         config = identify_model(reference)
         artifact = convert_model(reference)
         key = "model.23.one2one_cv2.0.2.weight"
@@ -140,7 +185,9 @@ class ModelTest(unittest.TestCase):
             convert_model(reference.half())
 
     def test_checkpoint_predictions(self):
-        reference = cast(DetectionModel, YOLO("yolo26n.pt").model).eval()
+        reference = (
+            cast(DetectionModel, YOLO("yolo26n.pt").model).eval().fuse(verbose=False)
+        )
         artifact = convert_model(reference)
         config = identify_model(reference)
         for batch in (1, 2):

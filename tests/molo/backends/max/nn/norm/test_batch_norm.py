@@ -3,7 +3,11 @@
 import unittest
 import torch
 from molo.backends.max.nn.norm.batch_norm import BatchNorm
-from tests.helpers import REF, compare
+import numpy as np
+from max.dtype import DType
+from max.engine import InferenceSession
+from max.graph import Graph, TensorType
+from tests.helpers import DEVICE, REF, prepare
 
 
 class BatchNormTest(unittest.TestCase):
@@ -21,12 +25,29 @@ class BatchNormTest(unittest.TestCase):
                     4: torch.nn.BatchNorm2d,
                     5: torch.nn.BatchNorm3d,
                 }[len(shape)]
-                compare(
-                    BatchNorm(4, eps=0.001, affine=affine, device=REF, name="layer"),
-                    cls(4, affine=affine),
-                    shape,
-                    prefix="layer",
+                reference = prepare(cls(4, affine=affine))
+                layer = BatchNorm(4, eps=0.001, affine=affine, device=REF, name="layer")
+                state = reference.state_dict()
+                names = ["running_mean", "running_var"]
+                if affine:
+                    names += ["weight", "bias"]
+                weights = {
+                    f"layer.{name}": state[name].detach().numpy() for name in names
+                }
+                layer.load_state_dict(weights, strict=True)
+                with Graph(
+                    "batch_norm_test",
+                    input_types=[TensorType(DType.float32, shape, REF)],
+                ) as graph:
+                    graph.output(layer(graph.inputs[0].tensor))
+                compiled = InferenceSession(devices=[DEVICE]).load(
+                    graph, weights_registry=weights
                 )
+                values = np.random.default_rng(17).normal(size=shape).astype(np.float32)
+                actual = np.from_dlpack(compiled.execute(values)[0])
+                with torch.inference_mode():
+                    expected = reference(torch.from_numpy(values)).numpy()
+                np.testing.assert_allclose(actual, expected, atol=1e-5, rtol=3e-5)
 
     def test_invalid_parameters(self):
         with self.assertRaises(ValueError):

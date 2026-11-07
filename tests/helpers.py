@@ -1,6 +1,8 @@
 """Helpers for comparing MAX modules with Ultralytics on CPU."""
 
 from molo.backends.max.pipelines.architectures.yolo.convert import assign_module
+from ultralytics.nn.modules.conv import Conv
+from ultralytics.utils.torch_utils import fuse_conv_and_bn
 
 import numpy as np
 import torch
@@ -14,7 +16,7 @@ REF = DeviceRef.CPU()
 
 
 def prepare(reference, seed=123, eps=0.001):
-    """Set deterministic, nontrivial BatchNorm state and match YOLO model epsilon."""
+    """Prepare a fused inference reference with nontrivial BatchNorm statistics."""
     rng = np.random.default_rng(seed)
     reference.eval()
     for module in reference.modules():
@@ -34,6 +36,11 @@ def prepare(reference, seed=123, eps=0.001):
             module.running_var.copy_(
                 torch.from_numpy(rng.uniform(0.5, 1.5, c).astype(np.float32))
             )
+    for module in reference.modules():
+        if isinstance(module, Conv):
+            module.conv = fuse_conv_and_bn(module.conv, module.bn)
+            del module.bn
+            module.forward = module.forward_fuse
     return reference
 
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from ultralytics.nn.tasks import DetectionModel
 from dataclasses import dataclass
-from copy import deepcopy
 from math import ceil
 
 from ..yolo.config import ImageShape, YOLOConfig, YOLOSize
@@ -155,16 +154,17 @@ def build_graph(
 
 
 def convert_model(model: DetectionModel) -> YOLOArtifact:
-    """Convert a loaded model to an in-memory MAX artifact."""
+    """Convert an already-fused evaluation model to an in-memory MAX artifact."""
     config = identify_model(model)
-    if not model.model[-1].end2end:
+    head = model.model[-1]
+    if not head.end2end:
         raise ValueError("YOLO26 MAX export requires end2end=True")
-    if model.model[-1].max_det != 300:
+    if head.max_det != 300:
         raise ValueError("YOLO26 MAX export requires max_det=300")
-    if model.model[-1].agnostic_nms:
+    if head.agnostic_nms:
         raise ValueError("YOLO26 MAX export requires agnostic_nms=False")
-    model = deepcopy(model).eval()
-    model.model[-1].fuse()
+    if model.training or head.cv2 is not None or head.cv3 is not None:
+        raise ValueError("YOLO26 conversion requires a fused evaluation model")
     weights = {}
     assign_module(weights, "model", model.model)
     return YOLOArtifact(
