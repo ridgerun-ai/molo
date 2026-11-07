@@ -9,7 +9,7 @@ class C2PSATest(unittest.TestCase):
         for repeats in (1, 2):
             with self.subTest(repeats=repeats):
                 compare(
-                    C2PSA(128, 128, repeats=repeats, device=REF, name="layer"),
+                    C2PSA(128, 128, repeats=repeats, device=REF),
                     Reference(128, 128, n=repeats),
                     (1, 128, 2, 3),
                 )

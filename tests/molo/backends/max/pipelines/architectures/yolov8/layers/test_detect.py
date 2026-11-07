@@ -28,8 +28,9 @@ class DetectTest(unittest.TestCase):
                 reference = prepare(reference_type(nc=classes, ch=channels))
                 reference.stride = torch.tensor([8.0, 16.0, 32.0])
                 weights = {}
-                assign_module(weights, "layer", reference)
-                model = model_type(classes, channels, device=REF, name="layer")
+                assign_module(weights, "", reference)
+                model = model_type(classes, channels, device=REF)
+                model.load_state_dict(weights, strict=True)
                 self.assertEqual(
                     {weight.name for weight in model.raw_state_dict().values()},
                     set(weights),

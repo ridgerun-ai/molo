@@ -2,7 +2,14 @@
 
 from max.dtype import DType
 from max.graph import DeviceRef, TensorValue, ops
-from max.nn import Conv2d, Module
+from max.nn import Conv2d, Identity, Module
+
+
+class SiLU(Module):
+    """SiLU activation."""
+
+    def __call__(self, x: TensorValue) -> TensorValue:
+        return ops.silu(x)
 
 
 class Conv(Module):
@@ -35,7 +42,6 @@ class Conv(Module):
         dilation: int = 1,
         activation: bool = True,
         device: DeviceRef = DeviceRef.GPU(),
-        name: str | None = None,
     ) -> None:
         super().__init__()
         if padding is None:
@@ -52,11 +58,10 @@ class Conv(Module):
             device=device,
             has_bias=True,
             permute=True,
-            name=f"{name}.conv" if name else "conv",
         )
-        self.activation = activation
+        self.act = SiLU() if activation else Identity()
 
     def __call__(self, x: TensorValue) -> TensorValue:
         """Apply fused convolution followed by optional SiLU."""
         x = self.conv(x)
-        return ops.silu(x) if self.activation else x
+        return self.act(x)

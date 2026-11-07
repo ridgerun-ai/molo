@@ -37,11 +37,12 @@ def prepare(reference, seed=123, eps=0.001):
     return reference
 
 
-def compare(model, reference, shape, seed=17, prefix="layer", atol=1e-5, rtol=3e-5):
+def compare(model, reference, shape, seed=17, prefix="", atol=1e-5, rtol=3e-5):
     """Compile and compare a single MAX module with its PyTorch counterpart."""
     reference = prepare(reference)
     weights = {}
     assign_module(weights, prefix, reference)
+    model.load_state_dict(weights, strict=True)
     registered_names = {weight.name for weight in model.raw_state_dict().values()}
     assert registered_names == weights.keys(), registered_names ^ weights.keys()
     with Graph(
@@ -54,3 +55,13 @@ def compare(model, reference, shape, seed=17, prefix="layer", atol=1e-5, rtol=3e
     with torch.inference_mode():
         expected = reference(torch.from_numpy(x)).detach().numpy()
     np.testing.assert_allclose(actual, expected, atol=atol, rtol=rtol)
+
+
+def module_paths(model, prefix=""):
+    """Return every registered MAX module path, including shared children."""
+    paths = set()
+    for name, child in model.sublayers.items():
+        path = f"{prefix}.{name}" if prefix else name
+        paths.add(path)
+        paths.update(module_paths(child, path))
+    return paths

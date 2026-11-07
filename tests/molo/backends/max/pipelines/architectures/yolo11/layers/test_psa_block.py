@@ -9,9 +9,7 @@ class PSABlockTest(unittest.TestCase):
         for shortcut, heads in [(True, 2), (False, 1)]:
             with self.subTest(shortcut=shortcut, heads=heads):
                 compare(
-                    PSABlock(
-                        64, num_heads=heads, shortcut=shortcut, device=REF, name="layer"
-                    ),
+                    PSABlock(64, num_heads=heads, shortcut=shortcut, device=REF),
                     Reference(64, num_heads=heads, shortcut=shortcut),
                     (1, 64, 2, 3),
                 )

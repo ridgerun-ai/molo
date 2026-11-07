@@ -16,7 +16,6 @@ class Detect(Module):
         in_channels: Input channels at each feature-map scale.
         strides: Image stride for each feature-map scale.
         device: Target device.
-        name: Optional weight-name prefix.
 
     The input feature maps use NCHW layout. Inference returns decoded boxes in
     xywh format and sigmoid class scores, shaped (batch, 4 + classes, locations).
@@ -29,7 +28,6 @@ class Detect(Module):
         in_channels: tuple[int, ...],
         strides: tuple[int, ...] = (8, 16, 32),
         device: DeviceRef = DeviceRef.GPU(),
-        name: str | None = None,
     ) -> None:
         super().__init__()
         if num_classes <= 0 or not in_channels or len(in_channels) != len(strides):
@@ -40,25 +38,23 @@ class Detect(Module):
         self.in_channels = tuple(in_channels)
         self.strides = tuple(strides)
         self.bins = 16
-        self.dfl = DFL(self.bins)
-        prefix = f"{name}." if name else ""
+        self.dfl = DFL(self.bins, device=device)
         box_width = max(16, in_channels[0] // 4, 4 * self.bins)
         class_width = max(in_channels[0], min(num_classes, 100))
         box_branches = []
         class_branches = []
-        for i, channels in enumerate(in_channels):
+        for channels in in_channels:
 
-            def conv(ci, co, k, weight_name, groups=1):
+            def conv(ci, co, k, groups=1):
                 return Conv(
                     ci,
                     co,
                     kernel_size=k,
                     groups=groups,
                     device=device,
-                    name=f"{prefix}{weight_name}",
                 )
 
-            def output_conv(ci, co, weight_name):
+            def output_conv(ci, co):
                 return Conv2d(
                     1,
                     ci,
@@ -67,31 +63,30 @@ class Detect(Module):
                     device=device,
                     has_bias=True,
                     permute=True,
-                    name=f"{prefix}{weight_name}",
                 )
 
             box_branches.append(
                 LayerList(
                     [
-                        conv(channels, box_width, 3, f"cv2.{i}.0"),
-                        conv(box_width, box_width, 3, f"cv2.{i}.1"),
-                        output_conv(box_width, 4 * self.bins, f"cv2.{i}.2"),
+                        conv(channels, box_width, 3),
+                        conv(box_width, box_width, 3),
+                        output_conv(box_width, 4 * self.bins),
                     ]
                 )
             )
             class_branches.append(
                 LayerList(
                     self._classification_branch(
-                        channels, class_width, num_classes, i, conv, output_conv
+                        channels, class_width, num_classes, conv, output_conv
                     )
                 )
             )
 
-        self.box_branches = LayerList(box_branches)
-        self.class_branches = LayerList(class_branches)
+        self.cv2 = LayerList(box_branches)
+        self.cv3 = LayerList(class_branches)
 
     def _classification_branch(
-        self, channels, class_width, num_classes, index, conv, output_conv
+        self, channels, class_width, num_classes, conv, output_conv
     ):
         raise NotImplementedError
 
@@ -100,9 +95,7 @@ class Detect(Module):
         if len(features) != len(self.in_channels):
             raise ValueError("number of feature maps must match in_channels")
         outputs = []
-        for feature, box_branch, class_branch in zip(
-            features, self.box_branches, self.class_branches
-        ):
+        for feature, box_branch, class_branch in zip(features, self.cv2, self.cv3):
             box = feature
             for layer in box_branch:
                 box = layer(box)

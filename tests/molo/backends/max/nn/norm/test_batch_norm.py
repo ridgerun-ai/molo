@@ -25,6 +25,7 @@ class BatchNormTest(unittest.TestCase):
                     BatchNorm(4, eps=0.001, affine=affine, device=REF, name="layer"),
                     cls(4, affine=affine),
                     shape,
+                    prefix="layer",
                 )
 
     def test_invalid_parameters(self):

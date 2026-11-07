@@ -13,7 +13,7 @@ class AttentionTest(unittest.TestCase):
         ]:
             with self.subTest(heads=heads, ratio=ratio):
                 compare(
-                    Attention(channels, heads, ratio, device=REF, name="layer"),
+                    Attention(channels, heads, ratio, device=REF),
                     Reference(channels, num_heads=heads, attn_ratio=ratio),
                     shape,
                 )

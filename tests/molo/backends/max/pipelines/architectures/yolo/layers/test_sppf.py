@@ -18,7 +18,7 @@ class SPPFTest(unittest.TestCase):
                 # original SPPF checkpoint uses SiLU in this position.
                 reference.cv1.act = torch.nn.SiLU()
                 compare(
-                    SPPF(ci, co, kernel, device=REF, name="layer"),
+                    SPPF(ci, co, kernel, device=REF),
                     reference,
                     (1, ci, *spatial),
                 )

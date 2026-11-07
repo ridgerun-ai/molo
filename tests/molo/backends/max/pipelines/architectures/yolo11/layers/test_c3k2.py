@@ -24,7 +24,6 @@ class C3k2Test(unittest.TestCase):
                         expansion,
                         shortcut=shortcut,
                         device=REF,
-                        name="layer",
                     ),
                     Reference(8, 8, n=repeats, c3k=c3k, e=expansion, shortcut=shortcut),
                     (1, 8, 3, 3),

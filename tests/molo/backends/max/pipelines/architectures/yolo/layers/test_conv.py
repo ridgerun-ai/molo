@@ -21,7 +21,6 @@ class ConvTest(unittest.TestCase):
                         groups=groups,
                         activation=activation,
                         device=REF,
-                        name="layer",
                     ),
                     Reference(ci, co, k, stride, g=groups, act=activation),
                     (1, ci, 5, 7),

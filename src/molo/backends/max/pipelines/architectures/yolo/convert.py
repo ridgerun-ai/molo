@@ -29,9 +29,11 @@ def assign_module(target: dict[str, np.ndarray], prefix: str, module) -> None:
                 del child.bn
                 child.forward = child.forward_fuse
     for name, value in module.state_dict().items():
-        if name.endswith("num_batches_tracked") or name == "dfl.conv.weight":
+        if name.endswith("num_batches_tracked"):
             continue
-        target[f"{prefix}.{name}"] = value.detach().cpu().numpy().astype(np.float32)
+        target[f"{prefix}.{name}" if prefix else name] = (
+            value.detach().cpu().numpy().astype(np.float32)
+        )
 
 
 def convert_model(

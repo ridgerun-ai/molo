@@ -21,7 +21,6 @@ class C3kTest(unittest.TestCase):
                         groups,
                         expansion,
                         device=REF,
-                        name="layer",
                     ),
                     Reference(
                         8, 8, n=repeats, shortcut=shortcut, g=groups, e=expansion

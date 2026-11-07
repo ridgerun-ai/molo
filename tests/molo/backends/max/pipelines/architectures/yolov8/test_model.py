@@ -1,6 +1,7 @@
 """Compare YOLOv8 model scaling with Ultralytics."""
 
 import unittest
+from tests.helpers import module_paths
 from unittest.mock import Mock, patch
 from typing import cast
 from ultralytics.nn.tasks import DetectionModel
@@ -82,7 +83,7 @@ class ModelSizesTest(unittest.TestCase):
         self.assertEqual(artifact.model_id, "yolov8n")
         self.assertEqual(artifact.class_names, ["first", "second"])
         self.assertIn("layer0.weight", artifact.weights)
-        self.assertIn("detect.weight", artifact.weights)
+        self.assertIn("layer22.weight", artifact.weights)
 
     def test_identify_model(self):
         for size in ("n", "s", "m", "l", "x"):
@@ -99,14 +100,42 @@ class ModelSizesTest(unittest.TestCase):
                     self.assertEqual(config.reg_max, reference.model[-1].reg_max)
                     model = YOLOv8(config)
                     self.assertIs(model.config, config)
-                    self.assertEqual(model.detect.num_classes, config.nc)
+                    reference.fuse(verbose=False)
+                    expected_paths = {
+                        f"layer{path}"
+                        for path, _ in reference.model.named_modules(
+                            remove_duplicate=False
+                        )
+                        if path
+                    }
+                    self.assertEqual(module_paths(model), expected_paths)
+                    artifact = convert_weights(reference)
+                    expected_weights = {
+                        f"layer{name}": value
+                        for name, value in reference.model.state_dict().items()
+                    }
+                    self.assertEqual(set(model.raw_state_dict()), set(expected_weights))
+                    self.assertEqual(set(artifact.weights), set(expected_weights))
+                    model.load_state_dict(artifact.weights, strict=True)
+                    for name, weight in model.raw_state_dict().items():
+                        self.assertEqual(weight.name, name)
+                    self.assertEqual(
+                        set(model.state_dict(auto_initialize=False)),
+                        set(expected_weights),
+                    )
+                    for name, value in model.state_dict(auto_initialize=False).items():
+                        np.testing.assert_array_equal(
+                            value, expected_weights[name].detach().numpy()
+                        )
+
+                    self.assertEqual(model.layer22.num_classes, config.nc)
 
     def test_identify_custom_classes(self):
         reference = cast(DetectionModel, YOLO("yolov8n.yaml").model)
         reference = DetectionModel(reference.yaml, nc=5, verbose=False)
         config = identify_model(reference)
         self.assertEqual(config.nc, 5)
-        self.assertEqual(YOLOv8(config).detect.num_classes, 5)
+        self.assertEqual(YOLOv8(config).layer22.num_classes, 5)
 
     def test_sizes(self):
         for size, scale in YOLOV8_SIZES.items():
@@ -115,3 +144,23 @@ class ModelSizesTest(unittest.TestCase):
                 self.assertEqual(
                     (scale.depth, scale.width, scale.max_channels), tuple(reference)
                 )
+
+    def test_strict_weight_loading(self):
+        reference = cast(DetectionModel, YOLO("yolov8n.pt").model)
+        artifact = convert_weights(reference)
+        for corruption in ("missing", "unexpected", "shape", "dtype"):
+            with self.subTest(corruption=corruption):
+                weights = dict(artifact.weights)
+                if corruption == "missing":
+                    del weights["layer0.conv.weight"]
+                elif corruption == "unexpected":
+                    weights["unexpected.weight"] = np.zeros(1, dtype=np.float32)
+                elif corruption == "shape":
+                    weights["layer0.conv.weight"] = np.zeros(1, dtype=np.float32)
+                else:
+                    weights["layer0.conv.weight"] = weights[
+                        "layer0.conv.weight"
+                    ].astype(np.float64)
+                model = YOLOv8(identify_model(reference))
+                with self.assertRaises(ValueError):
+                    model.load_state_dict(weights, strict=True)

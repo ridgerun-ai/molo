@@ -13,11 +13,17 @@ from tests.helpers import DEVICE, REF
 class DFLTest(unittest.TestCase):
     def test_logits(self):
         shape = (2, 64, 11)
+        reference = Reference().eval()
+        layer = DFL(device=REF)
+        weights = {
+            key: value.detach().numpy() for key, value in reference.state_dict().items()
+        }
+        layer.load_state_dict(weights, strict=True)
         with Graph(
             "dfl_test", input_types=[TensorType(DType.float32, shape, REF)]
         ) as graph:
-            graph.output(DFL()(graph.inputs[0].tensor))
-        model = InferenceSession(devices=[DEVICE]).load(graph)
+            graph.output(layer(graph.inputs[0].tensor))
+        model = InferenceSession(devices=[DEVICE]).load(graph, weights_registry=weights)
         reference = Reference().eval()
         rng = np.random.default_rng(42)
         for label, x in [

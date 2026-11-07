@@ -22,7 +22,6 @@ class C2fTest(unittest.TestCase):
                         shortcut=shortcut,
                         expansion=expansion,
                         device=REF,
-                        name="layer",
                     ),
                     Reference(8, 8, n=repeats, shortcut=shortcut, e=expansion),
                     (1, 8, 3, 3),

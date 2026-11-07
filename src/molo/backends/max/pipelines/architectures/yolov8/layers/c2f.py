@@ -19,16 +19,12 @@ class C2f(Module):
         groups: int = 1,
         expansion: float = 0.5,
         device: DeviceRef = DeviceRef.GPU(),
-        name: str | None = None,
     ) -> None:
         super().__init__()
         self.hidden_channels = int(out_channels * expansion)
-        prefix = f"{name}." if name else ""
         c = self.hidden_channels
-        self.cv1 = Conv(in_channels, 2 * c, device=device, name=f"{prefix}cv1")
-        self.cv2 = Conv(
-            (2 + repeats) * c, out_channels, device=device, name=f"{prefix}cv2"
-        )
+        self.cv1 = Conv(in_channels, 2 * c, device=device)
+        self.cv2 = Conv((2 + repeats) * c, out_channels, device=device)
         self.m = LayerList(
             [
                 Bottleneck(
@@ -38,7 +34,6 @@ class C2f(Module):
                     groups=groups,
                     expansion=1.0,
                     device=device,
-                    name=f"{prefix}m.{i}",
                 )
                 for i in range(repeats)
             ]

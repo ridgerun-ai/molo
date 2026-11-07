@@ -24,7 +24,6 @@ class BottleneckTest(unittest.TestCase):
                         kernels,
                         expansion,
                         device=REF,
-                        name="layer",
                     ),
                     Reference(
                         ci, co, shortcut=shortcut, g=groups, k=kernels, e=expansion

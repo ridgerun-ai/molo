@@ -31,7 +31,7 @@ class Architecture:
 
     prefix: str
     sizes: Collection[str]
-    build_graph: Callable[[YOLOConfig, ImageShape | None], Graph]
+    build_graph: Callable[[YOLOConfig, YOLOArtifact, ImageShape | None], Graph]
     convert_model: Callable[[DetectionModel], YOLOArtifact]
 
 

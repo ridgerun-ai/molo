@@ -89,6 +89,7 @@ class MaxBackend(BaseBackend):
         if model is None:
             graph = self._build_graph(
                 self.config,
+                self.artifact,
                 input_shape=shape_key,
             )
             model = self.session.load(graph, weights_registry=self.artifact.weights)

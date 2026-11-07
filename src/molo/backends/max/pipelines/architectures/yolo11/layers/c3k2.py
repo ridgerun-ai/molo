@@ -20,7 +20,6 @@ class C3k2(Module):
         groups: Number of groups in internal bottleneck convolutions.
         shortcut: Enable internal bottleneck residual connections.
         device: Target device.
-        name: Optional prefix for weight names.
     """
 
     def __init__(
@@ -33,16 +32,12 @@ class C3k2(Module):
         groups: int = 1,
         shortcut: bool = True,
         device: DeviceRef = DeviceRef.GPU(),
-        name: str | None = None,
     ) -> None:
         super().__init__()
         self.hidden_channels = int(out_channels * expansion)
-        prefix = f"{name}." if name else ""
         c = self.hidden_channels
-        self.cv1 = Conv(in_channels, 2 * c, device=device, name=f"{prefix}cv1")
-        self.cv2 = Conv(
-            (2 + repeats) * c, out_channels, device=device, name=f"{prefix}cv2"
-        )
+        self.cv1 = Conv(in_channels, 2 * c, device=device)
+        self.cv2 = Conv((2 + repeats) * c, out_channels, device=device)
         blocks = []
         for i in range(repeats):
             if c3k:
@@ -53,7 +48,6 @@ class C3k2(Module):
                     shortcut=shortcut,
                     groups=groups,
                     device=device,
-                    name=f"{prefix}m.{i}",
                 )
             else:
                 block = Bottleneck(
@@ -62,7 +56,6 @@ class C3k2(Module):
                     shortcut=shortcut,
                     groups=groups,
                     device=device,
-                    name=f"{prefix}m.{i}",
                 )
             blocks.append(block)
         self.m = LayerList(blocks)
