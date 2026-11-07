@@ -11,10 +11,11 @@ YOLOSize = Literal["n", "s", "m", "l", "x"]
 
 @dataclass(frozen=True)
 class ImageShape:
-    """Image dimensions used to build and cache a MAX graph."""
+    """Image dimensions and batch size used to build and cache a MAX graph."""
 
     height: int
     width: int
+    batch_size: int = 1
 
 
 @dataclass(frozen=True)

@@ -15,7 +15,7 @@ from max.graph import Graph, TensorType
 from .layers.c2psa import C2PSA
 from .layers.c3k2 import C3k2
 from ..yolo.layers.conv import Conv
-from ..yolo.layers import Concat
+from ..yolo.layers.concat import Concat
 from .layers.detect import YOLO11Detect
 from ..yolo.layers.sppf import SPPF
 from ..yolo.layers.upsample import UpsampleNearest2x
@@ -141,7 +141,7 @@ def build_graph(
     shape = input_shape or ImageShape(height=config.input_size, width=config.input_size)
     input_type = TensorType(
         DType.float32,
-        shape=[1, 3, shape.height, shape.width],
+        shape=[shape.batch_size, 3, shape.height, shape.width],
         device=config.device,
     )
     with Graph(f"yolo11{config.size}_detect", input_types=[input_type]) as graph:

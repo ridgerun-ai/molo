@@ -18,30 +18,39 @@ from molo.backends.max.pipelines.architectures.yolo.config import ImageShape
 
 class BackendTest(unittest.TestCase):
     def test_prediction_and_graph_cache(self):
-        source = Path("yolo11n.pt")
-        reference = YOLO(str(source)).model.eval()  # ty: ignore[unresolved-attribute]
-        artifact = Path("standalone.max")
-        if artifact.exists():
-            raise FileExistsError(f"Refusing to overwrite {artifact}")
-        try:
-            convert_model(reference, artifact, model_id="yolo11n")
-            self.assertFalse(artifact.with_suffix(".pt").exists())
-            backend = MaxBackend(str(artifact), device=torch.device("cpu"))
-            self.assertEqual(backend.names, reference.names)
-            shape = (64, 96)
-            x = np.random.default_rng(7).random((1, 3, *shape), dtype=np.float32)
-            with torch.inference_mode():
-                expected = reference(torch.from_numpy(x))[0].numpy()
-                actual = backend.forward(torch.from_numpy(x)).numpy()
-            np.testing.assert_allclose(actual, expected, atol=0.003, rtol=1e-4)
-            compiled = backend._compiled_models[ImageShape(height=64, width=96)]
-            actual_again = backend.forward(torch.from_numpy(x)).numpy()
-            self.assertIs(
-                backend._compiled_models[ImageShape(height=64, width=96)], compiled
-            )
-            np.testing.assert_array_equal(actual_again, actual)
-        finally:
-            artifact.unlink(missing_ok=True)
+        for family in ("yolo11", "yolov8"):
+            with self.subTest(family=family):
+                reference = cast(DetectionModel, YOLO(f"{family}n.pt").model).eval()
+                artifact = Path(f"{family}_batched.max")
+                if artifact.exists():
+                    raise FileExistsError(f"Refusing to overwrite {artifact}")
+                try:
+                    convert_model(reference, artifact, model_id=f"{family}n")
+                    self.assertFalse(artifact.with_suffix(".pt").exists())
+                    backend = MaxBackend(str(artifact), device=torch.device("cpu"))
+                    self.assertEqual(backend.names, reference.names)
+                    self.assertFalse(backend._compiled_models)
+                    cached = {}
+                    for batch_size in (1, 2, 4, 2, 1):
+                        with self.subTest(batch_size=batch_size):
+                            x = np.random.default_rng(7).random(
+                                (batch_size, 3, 64, 96), dtype=np.float32
+                            )
+                            with torch.inference_mode():
+                                expected = reference(torch.from_numpy(x))[0].numpy()
+                                actual = backend.forward(torch.from_numpy(x)).numpy()
+                            self.assertEqual(actual.shape, expected.shape)
+                            np.testing.assert_allclose(
+                                actual, expected, atol=0.003, rtol=1e-4
+                            )
+                            key = ImageShape(height=64, width=96, batch_size=batch_size)
+                            compiled = backend._compiled_models[key]
+                            if key in cached:
+                                self.assertIs(compiled, cached[key])
+                            cached[key] = compiled
+                            self.assertEqual(len(backend._compiled_models), len(cached))
+                finally:
+                    artifact.unlink(missing_ok=True)
 
     def test_public_prediction(self):
         from molo import YOLO as MoloYOLO
@@ -53,19 +62,27 @@ class BackendTest(unittest.TestCase):
         try:
             model = MoloYOLO(source)
             model.export(format="max", imgsz=64)
-            image = np.random.default_rng(41).integers(
-                0, 256, size=(64, 64, 3), dtype=np.uint8
+            images = list(
+                np.random.default_rng(41).integers(
+                    0, 256, size=(2, 64, 64, 3), dtype=np.uint8
+                )
             )
-            expected = model.predict(source=image, imgsz=64, verbose=False)[0]
-            actual = MoloYOLO(artifact, task="detect").predict(
-                source=image, imgsz=64, verbose=False
-            )[0]
-            assert actual.boxes is not None and expected.boxes is not None
-            np.testing.assert_allclose(
-                np.asarray(actual.boxes.data),
-                np.asarray(expected.boxes.data),
-                atol=0.003,
-                rtol=1e-4,
+            expected = model.predict(source=images, batch=2, imgsz=64, verbose=False)
+            max_model = MoloYOLO(artifact, task="detect")
+            actual = max_model.predict(source=images, batch=2, imgsz=64, verbose=False)
+            self.assertEqual(len(actual), len(images))
+            for result, reference in zip(actual, expected):
+                assert result.boxes is not None and reference.boxes is not None
+                np.testing.assert_allclose(
+                    np.asarray(result.boxes.data),
+                    np.asarray(reference.boxes.data),
+                    atol=0.003,
+                    rtol=1e-4,
+                )
+            assert max_model.predictor is not None
+            backend = max_model.predictor.model.backend
+            self.assertIn(
+                ImageShape(height=64, width=64, batch_size=2), backend._compiled_models
             )
         finally:
             artifact.unlink(missing_ok=True)
