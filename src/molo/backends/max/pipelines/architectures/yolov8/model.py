@@ -116,7 +116,9 @@ def build_graph(
 ) -> Graph:
     shape = input_shape or ImageShape(height=config.input_size, width=config.input_size)
     input_type = TensorType(
-        DType.float32, shape=[1, 3, shape.height, shape.width], device=config.device
+        DType.float32,
+        shape=[shape.batch_size, 3, shape.height, shape.width],
+        device=config.device,
     )
     with Graph(f"yolov8{config.size}_detect", input_types=[input_type]) as graph:
         model = YOLOv8(config)

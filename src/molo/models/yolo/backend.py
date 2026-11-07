@@ -78,7 +78,9 @@ class MaxBackend(BaseBackend):
         self.session = InferenceSession(devices=[Device.cpu()])
         return self
 
-    def _ensure_model_for_shape(self, input_height: int, input_width: int):
+    def _ensure_model_for_shape(
+        self, batch_size: int, input_height: int, input_width: int
+    ):
         from molo.backends.max.pipelines.architectures.yolo.config import ImageShape
 
         if (
@@ -89,7 +91,11 @@ class MaxBackend(BaseBackend):
         ):
             raise RuntimeError("MAX model has not been loaded.")
 
-        shape_key = ImageShape(height=int(input_height), width=int(input_width))
+        shape_key = ImageShape(
+            height=int(input_height),
+            width=int(input_width),
+            batch_size=int(batch_size),
+        )
         model = self._compiled_models.get(shape_key)
         if model is None:
             graph = self._build_graph(
@@ -104,8 +110,7 @@ class MaxBackend(BaseBackend):
 
     def forward(self, im: torch.Tensor) -> torch.Tensor:
         assert im.ndim == 4, "Expected BCHW input"
-        assert im.shape[0] == 1, "MAX backend supports batch size 1 only"
-        model = self._ensure_model_for_shape(im.shape[2], im.shape[3])
+        model = self._ensure_model_for_shape(im.shape[0], im.shape[2], im.shape[3])
         outputs = model.execute(np.ascontiguousarray(im.numpy()))
         assert len(outputs) == 1, "Expected one MAX graph output"
         return torch.from_dlpack(outputs[0])

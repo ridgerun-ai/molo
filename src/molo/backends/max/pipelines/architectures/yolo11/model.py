@@ -141,7 +141,7 @@ def build_graph(
     shape = input_shape or ImageShape(height=config.input_size, width=config.input_size)
     input_type = TensorType(
         DType.float32,
-        shape=[1, 3, shape.height, shape.width],
+        shape=[shape.batch_size, 3, shape.height, shape.width],
         device=config.device,
     )
     with Graph(f"yolo11{config.size}_detect", input_types=[input_type]) as graph:
