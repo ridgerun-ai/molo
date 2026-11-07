@@ -50,8 +50,8 @@ class YOLO11(nn.Module):
             scale = YOLO11_SIZES[config.size]
         except KeyError as exc:
             raise ValueError(f"Unsupported YOLO11 size: {config.size!r}") from exc
-        if config.dtype != DType.float32 or config.reg_max != 16:
-            raise ValueError("YOLO11 currently supports float32 and reg_max=16")
+        if config.dtype != DType.float32:
+            raise ValueError("YOLO11 currently supports float32")
 
         def channels(base: int) -> int:
             if base == config.nc:
@@ -104,6 +104,7 @@ class YOLO11(nn.Module):
                 block(c512 + c1024, c1024, c3k=True),
                 YOLO11Detect(
                     num_classes=config.nc,
+                    reg_max=config.reg_max,
                     in_channels=(c256, c512, c1024),
                     device=device,
                 ),

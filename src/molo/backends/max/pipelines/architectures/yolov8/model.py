@@ -42,8 +42,8 @@ class YOLOv8(nn.Module):
     def __init__(self, config: YOLOConfig) -> None:
         super().__init__()
         self.config = config
-        if config.dtype != DType.float32 or config.reg_max != 16:
-            raise ValueError("YOLOv8 currently supports float32 and reg_max=16")
+        if config.dtype != DType.float32:
+            raise ValueError("YOLOv8 currently supports float32")
         scale = YOLOV8_SIZES[config.size]
 
         def channels(base: int) -> int:
@@ -92,6 +92,7 @@ class YOLOv8(nn.Module):
                 block(c512 + c1024, c1024),
                 YOLOv8Detect(
                     num_classes=config.nc,
+                    reg_max=config.reg_max,
                     in_channels=(c256, c512, c1024),
                     device=device,
                 ),

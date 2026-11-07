@@ -15,3 +15,9 @@ class DetectTest(unittest.TestCase):
             with self.subTest(classes=classes, channels=channels, strides=strides):
                 with self.assertRaises(ValueError):
                     Detect(classes, channels, strides=strides, device=DeviceRef.CPU())
+
+    def test_invalid_reg_max(self):
+        for reg_max in (0, -1):
+            with self.subTest(reg_max=reg_max):
+                with self.assertRaisesRegex(ValueError, "reg_max must be positive"):
+                    Detect(2, (8,), strides=(8,), reg_max=reg_max)

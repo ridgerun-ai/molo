@@ -19,17 +19,24 @@ class DetectTest(unittest.TestCase):
     def test_raw_and_decoded(self):
         self.check_head(YOLOv8Detect, YOLOv8Reference)
 
-    def check_head(self, model_type, reference_type):
+    def test_reg_max(self):
+        for reg_max in (1, 4, 8, 20):
+            with self.subTest(reg_max=reg_max):
+                self.check_head(YOLOv8Detect, YOLOv8Reference, reg_max=reg_max)
+
+    def check_head(self, model_type, reference_type, reg_max=16):
         for classes, channels, shapes in [
             (5, (8, 16, 32), ((1, 8, 4, 6), (1, 16, 2, 3), (1, 32, 1, 2))),
             (2, (8, 16, 32), ((1, 8, 2, 2), (1, 16, 1, 1), (1, 32, 1, 1))),
         ]:
             with self.subTest(classes=classes, shapes=shapes):
-                reference = prepare(reference_type(nc=classes, ch=channels))
+                reference = prepare(
+                    reference_type(nc=classes, ch=channels, reg_max=reg_max)
+                )
                 reference.stride = torch.tensor([8.0, 16.0, 32.0])
                 weights = {}
                 assign_module(weights, "", reference)
-                model = model_type(classes, channels, device=REF)
+                model = model_type(classes, channels, device=REF, reg_max=reg_max)
                 model.load_state_dict(weights, strict=True)
                 self.assertEqual(
                     {weight.name for weight in model.raw_state_dict().values()},

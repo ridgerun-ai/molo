@@ -56,9 +56,15 @@ class MaxBackend(BaseBackend):
         model_id = artifact.model_id
         architecture = get_architecture(model_id)
         self._build_graph = architecture.build_graph
+        box_weights = next(
+            weight
+            for name, weight in artifact.weights.items()
+            if name.endswith(".cv2.0.2.weight")
+        )
         self.config = YOLOConfig(
             size=cast(YOLOSize, model_id.removeprefix(architecture.prefix)),
             nc=len(self.names),
+            reg_max=box_weights.shape[0] // 4,
         )
         self.fp16 = self.config.dtype == DType.float16
         self.imgsz = self.config.input_size

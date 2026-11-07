@@ -3,7 +3,7 @@
 import numpy as np
 from max.dtype import DType
 from max.graph import DeviceRef, TensorValue, ops
-from max.nn import Conv2d, LayerList, Module
+from max.nn import Conv2d, Identity, LayerList, Module
 from .conv import Conv
 from .dfl import DFL
 
@@ -16,6 +16,7 @@ class Detect(Module):
         in_channels: Input channels at each feature-map scale.
         strides: Image stride for each feature-map scale.
         device: Target device.
+        reg_max: Number of bins per box-distance distribution.
 
     The input feature maps use NCHW layout. Inference returns decoded boxes in
     xywh format and sigmoid class scores, shaped (batch, 4 + classes, locations).
@@ -28,8 +29,11 @@ class Detect(Module):
         in_channels: tuple[int, ...],
         strides: tuple[int, ...] = (8, 16, 32),
         device: DeviceRef = DeviceRef.GPU(),
+        reg_max: int = 16,
     ) -> None:
         super().__init__()
+        if reg_max <= 0:
+            raise ValueError("reg_max must be positive")
         if num_classes <= 0 or not in_channels or len(in_channels) != len(strides):
             raise ValueError(
                 "provide positive class count and matching channels and strides"
@@ -37,8 +41,8 @@ class Detect(Module):
         self.num_classes = num_classes
         self.in_channels = tuple(in_channels)
         self.strides = tuple(strides)
-        self.bins = 16
-        self.dfl = DFL(self.bins, device=device)
+        self.bins = reg_max
+        self.dfl = DFL(reg_max, device=device) if reg_max > 1 else Identity()
         box_width = max(16, in_channels[0] // 4, 4 * self.bins)
         class_width = max(in_channels[0], min(num_classes, 100))
         box_branches = []

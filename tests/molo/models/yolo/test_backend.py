@@ -1,6 +1,9 @@
 """Tests for the YOLO MAX backend."""
 
 import unittest
+from copy import deepcopy
+from typing import cast
+from ultralytics.nn.tasks import DetectionModel
 
 from pathlib import Path
 
@@ -66,3 +69,29 @@ class BackendTest(unittest.TestCase):
             )
         finally:
             artifact.unlink(missing_ok=True)
+
+    def test_reg_max_inferred_from_weights(self):
+        x = np.random.default_rng(57).random((1, 3, 64, 96), dtype=np.float32)
+        for family in ("yolo11", "yolov8"):
+            yaml = cast(DetectionModel, YOLO(f"{family}n.yaml").model).yaml
+            for reg_max in (1, 8, 20):
+                with self.subTest(family=family, reg_max=reg_max):
+                    cfg = deepcopy(yaml)
+                    cfg["reg_max"] = reg_max
+                    reference = DetectionModel(cfg, nc=3, verbose=False).eval()
+                    artifact = Path(f"{family}_reg_max_{reg_max}.max")
+                    if artifact.exists():
+                        raise FileExistsError(f"Refusing to overwrite {artifact}")
+                    try:
+                        convert_model(reference, artifact, model_id=f"{family}n")
+                        backend = MaxBackend(str(artifact), device=torch.device("cpu"))
+                        assert backend.config is not None
+                        self.assertEqual(backend.config.reg_max, reg_max)
+                        with torch.inference_mode():
+                            expected = reference(torch.from_numpy(x))[0].numpy()
+                            actual = backend.forward(torch.from_numpy(x)).numpy()
+                        np.testing.assert_allclose(
+                            actual, expected, atol=0.003, rtol=1e-4
+                        )
+                    finally:
+                        artifact.unlink(missing_ok=True)
