@@ -76,14 +76,12 @@ class DetectTest(unittest.TestCase):
                     np.testing.assert_allclose(result, expected, atol=2e-4, rtol=4e-5)
 
     def test_postprocess(self):
-        for batch, classes, anchors, maximum in ((1, 3, 9, 300), (2, 5, 12, 4)):
-            with self.subTest(batch=batch, maximum=maximum):
+        for batch, classes, anchors in ((1, 3, 9), (2, 5, 320)):
+            with self.subTest(batch=batch, anchors=anchors):
                 values = np.random.default_rng(25).random(
                     (batch, 4 + classes, anchors), dtype=np.float32
                 )
-                model = YOLO26Detect(
-                    classes, (8,), strides=(8,), max_detections=maximum, device=REF
-                )
+                model = YOLO26Detect(classes, (8,), strides=(8,), device=REF)
                 with Graph(
                     "yolo26_postprocess_test",
                     input_types=[TensorType(DType.float32, values.shape, REF)],
@@ -92,7 +90,6 @@ class DetectTest(unittest.TestCase):
                 compiled = InferenceSession(devices=[DEVICE]).load(graph)
                 actual = np.from_dlpack(compiled.execute(values)[0])
                 reference = Reference(nc=classes, ch=(8,), reg_max=1, end2end=True)
-                reference.max_det = maximum
                 expected = reference.postprocess(
                     torch.from_numpy(values).permute(0, 2, 1)
                 ).numpy()
