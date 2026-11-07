@@ -2,6 +2,8 @@
 
 import unittest
 from types import SimpleNamespace
+from typing import cast
+from pathlib import Path
 
 from molo.backends.max.pipelines.architectures.yolo.artifact import YOLOArtifact
 from unittest.mock import Mock, patch
@@ -49,6 +51,22 @@ class ConvertTest(unittest.TestCase):
         with torch.no_grad():
             torch.testing.assert_close(actual, module(x))
         self.assertTrue(hasattr(module, "bn"))
+
+    def test_rejects_fp16(self):
+        from ultralytics import YOLO
+        from ultralytics.nn.tasks import DetectionModel
+
+        for source in ("yolo11n.yaml", "yolov8n.yaml"):
+            with self.subTest(source=source):
+                model = cast(DetectionModel, YOLO(source).model).half()
+                with (
+                    patch(
+                        "molo.backends.max.pipelines.architectures.yolo.convert.save_artifact"
+                    ) as save,
+                    self.assertRaisesRegex(ValueError, "requires float32 weights"),
+                ):
+                    convert_model(model, "unsupported.max", model_id=Path(source).stem)
+                save.assert_not_called()
 
     def test_dispatch(self):
         for prefix in ("yolo11", "yolov8", "another_architecture"):

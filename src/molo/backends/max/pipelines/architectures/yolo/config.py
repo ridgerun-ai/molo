@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from max.dtype import DType
 from max.graph import DeviceRef
 
 
@@ -26,5 +25,4 @@ class YOLOConfig:
     nc: int = 80
     input_size: int = 640
     reg_max: int = 16
-    dtype: DType = DType.float32
     device: DeviceRef = DeviceRef.CPU()

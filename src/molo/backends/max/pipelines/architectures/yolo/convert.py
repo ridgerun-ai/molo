@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from ultralytics.nn.tasks import DetectionModel
 
 import numpy as np
+import torch
 
 from .artifact import save_artifact
 
@@ -18,6 +19,12 @@ def assign_module(target: dict[str, np.ndarray], prefix: str, module) -> None:
     """Copy parameters, folding YOLO convolution normalization into weights and bias."""
     from ultralytics.nn.modules.conv import Conv
     from ultralytics.utils.torch_utils import fuse_conv_and_bn
+
+    for name, value in module.state_dict().items():
+        if value.is_floating_point() and value.dtype != torch.float32:
+            raise ValueError(
+                f"MAX conversion requires float32 weights; {name!r} has {value.dtype}"
+            )
 
     if any(
         isinstance(child, Conv) and hasattr(child, "bn") for child in module.modules()
@@ -31,9 +38,7 @@ def assign_module(target: dict[str, np.ndarray], prefix: str, module) -> None:
     for name, value in module.state_dict().items():
         if name.endswith("num_batches_tracked"):
             continue
-        target[f"{prefix}.{name}" if prefix else name] = (
-            value.detach().cpu().numpy().astype(np.float32)
-        )
+        target[f"{prefix}.{name}" if prefix else name] = value.detach().cpu().numpy()
 
 
 def convert_model(

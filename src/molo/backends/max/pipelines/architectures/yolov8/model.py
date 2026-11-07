@@ -42,8 +42,6 @@ class YOLOv8(nn.Module):
     def __init__(self, config: YOLOConfig) -> None:
         super().__init__()
         self.config = config
-        if config.dtype != DType.float32:
-            raise ValueError("YOLOv8 currently supports float32")
         scale = YOLOV8_SIZES[config.size]
 
         def channels(base: int) -> int:
@@ -118,7 +116,7 @@ def build_graph(
 ) -> Graph:
     shape = input_shape or ImageShape(height=config.input_size, width=config.input_size)
     input_type = TensorType(
-        config.dtype, shape=[1, 3, shape.height, shape.width], device=config.device
+        DType.float32, shape=[1, 3, shape.height, shape.width], device=config.device
     )
     with Graph(f"yolov8{config.size}_detect", input_types=[input_type]) as graph:
         model = YOLOv8(config)

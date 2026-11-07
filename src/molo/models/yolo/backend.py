@@ -34,7 +34,6 @@ class MaxBackend(BaseBackend):
         self._build_graph: Any = None
 
         try:
-            from max.dtype import DType
             from max.driver import Device
             from max.engine import InferenceSession
             from molo.backends.max.pipelines.architectures.yolo.artifact import (
@@ -66,7 +65,7 @@ class MaxBackend(BaseBackend):
             nc=len(self.names),
             reg_max=box_weights.shape[0] // 4,
         )
-        self.fp16 = self.config.dtype == DType.float16
+        self.fp16 = False
         self.imgsz = self.config.input_size
         self.metadata = {
             "batch": self.batch,

@@ -50,8 +50,6 @@ class YOLO11(nn.Module):
             scale = YOLO11_SIZES[config.size]
         except KeyError as exc:
             raise ValueError(f"Unsupported YOLO11 size: {config.size!r}") from exc
-        if config.dtype != DType.float32:
-            raise ValueError("YOLO11 currently supports float32")
 
         def channels(base: int) -> int:
             if base == config.nc:
@@ -142,7 +140,7 @@ def build_graph(
 ) -> Graph:
     shape = input_shape or ImageShape(height=config.input_size, width=config.input_size)
     input_type = TensorType(
-        config.dtype,
+        DType.float32,
         shape=[1, 3, shape.height, shape.width],
         device=config.device,
     )
