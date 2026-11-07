@@ -45,7 +45,7 @@ class ExportTest(unittest.TestCase):
             result = load_artifact(artifact)
             self.assertEqual(result.model_id, "yolo11n")
             self.assertEqual(len(result.class_names), 80)
-            self.assertIn("layer0.conv.weight", result.weights)
+            self.assertIn("model.0.conv.weight", result.weights)
         finally:
             artifact.unlink(missing_ok=True)
 

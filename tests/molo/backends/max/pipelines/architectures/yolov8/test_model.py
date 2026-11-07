@@ -1,6 +1,10 @@
 """Compare YOLOv8 model scaling with Ultralytics."""
 
 import unittest
+from molo.backends.max.pipelines.architectures.yolo.layers.bottleneck import Bottleneck
+from molo.backends.max.pipelines.architectures.yolo.layers.conv import Conv
+from molo.backends.max.pipelines.architectures.yolov8.layers.c2f import C2f
+from molo.backends.max.pipelines.architectures.yolov8.layers.detect import YOLOv8Detect
 from tests.helpers import module_paths
 from unittest.mock import Mock, patch
 from typing import cast
@@ -31,21 +35,21 @@ class ModelSizesTest(unittest.TestCase):
                 model = YOLOv8(YOLOConfig(size=size))
                 reference = YOLO(f"yolov8{size}.yaml").model.model  # ty: ignore[unresolved-attribute]
                 for index in (0, 1, 3, 5, 7, 16, 19):
-                    actual = getattr(model, f"layer{index}").conv
+                    actual = cast(Conv, model.model[index]).conv
                     expected = reference[index].conv
                     self.assertEqual(
                         (actual.in_channels, actual.out_channels),
                         (expected.in_channels, expected.out_channels),
                     )
                 for index in (2, 4, 6, 8, 12, 15, 18, 21):
-                    actual = getattr(model, f"layer{index}")
+                    actual = cast(C2f, model.model[index])
                     expected = reference[index]
                     self.assertEqual(len(actual.m), len(expected.m))
                     self.assertEqual(
                         actual.cv1.conv.out_channels, expected.cv1.conv.out_channels
                     )
                     self.assertEqual(
-                        actual.m[0].cv1.conv.out_channels,
+                        cast(Bottleneck, actual.m[0]).cv1.conv.out_channels,
                         expected.m[0].cv1.conv.out_channels,
                     )
 
@@ -74,7 +78,9 @@ class ModelSizesTest(unittest.TestCase):
         layers = [torch.nn.Linear(1, 1) for _ in range(23)]
         setattr(layers[-1], "reg_max", 16)
         model = Mock(
-            model=layers, names={1: "second", 0: "first"}, yaml={"scale": "n", "nc": 2}
+            model=torch.nn.Sequential(*layers),
+            names={1: "second", 0: "first"},
+            yaml={"scale": "n", "nc": 2},
         )
         with patch(
             "builtins.open", side_effect=AssertionError("Conversion must not write")
@@ -82,8 +88,8 @@ class ModelSizesTest(unittest.TestCase):
             artifact = convert_weights(model)
         self.assertEqual(artifact.model_id, "yolov8n")
         self.assertEqual(artifact.class_names, ["first", "second"])
-        self.assertIn("layer0.weight", artifact.weights)
-        self.assertIn("layer22.weight", artifact.weights)
+        self.assertIn("model.0.weight", artifact.weights)
+        self.assertIn("model.22.weight", artifact.weights)
 
     def test_identify_model(self):
         for size in ("n", "s", "m", "l", "x"):
@@ -102,17 +108,14 @@ class ModelSizesTest(unittest.TestCase):
                     self.assertIs(model.config, config)
                     reference.fuse(verbose=False)
                     expected_paths = {
-                        f"layer{path}"
-                        for path, _ in reference.model.named_modules(
-                            remove_duplicate=False
-                        )
+                        path
+                        for path, _ in reference.named_modules(remove_duplicate=False)
                         if path
                     }
                     self.assertEqual(module_paths(model), expected_paths)
                     artifact = convert_weights(reference)
                     expected_weights = {
-                        f"layer{name}": value
-                        for name, value in reference.model.state_dict().items()
+                        name: value for name, value in reference.state_dict().items()
                     }
                     self.assertEqual(set(model.raw_state_dict()), set(expected_weights))
                     self.assertEqual(set(artifact.weights), set(expected_weights))
@@ -128,14 +131,16 @@ class ModelSizesTest(unittest.TestCase):
                             value, expected_weights[name].detach().numpy()
                         )
 
-                    self.assertEqual(model.layer22.num_classes, config.nc)
+                    self.assertEqual(
+                        cast(YOLOv8Detect, model.model[22]).num_classes, config.nc
+                    )
 
     def test_identify_custom_classes(self):
         reference = cast(DetectionModel, YOLO("yolov8n.yaml").model)
         reference = DetectionModel(reference.yaml, nc=5, verbose=False)
         config = identify_model(reference)
         self.assertEqual(config.nc, 5)
-        self.assertEqual(YOLOv8(config).layer22.num_classes, 5)
+        self.assertEqual(cast(YOLOv8Detect, YOLOv8(config).model[22]).num_classes, 5)
 
     def test_sizes(self):
         for size, scale in YOLOV8_SIZES.items():
@@ -152,14 +157,14 @@ class ModelSizesTest(unittest.TestCase):
             with self.subTest(corruption=corruption):
                 weights = dict(artifact.weights)
                 if corruption == "missing":
-                    del weights["layer0.conv.weight"]
+                    del weights["model.0.conv.weight"]
                 elif corruption == "unexpected":
                     weights["unexpected.weight"] = np.zeros(1, dtype=np.float32)
                 elif corruption == "shape":
-                    weights["layer0.conv.weight"] = np.zeros(1, dtype=np.float32)
+                    weights["model.0.conv.weight"] = np.zeros(1, dtype=np.float32)
                 else:
-                    weights["layer0.conv.weight"] = weights[
-                        "layer0.conv.weight"
+                    weights["model.0.conv.weight"] = weights[
+                        "model.0.conv.weight"
                     ].astype(np.float64)
                 model = YOLOv8(identify_model(reference))
                 with self.assertRaises(ValueError):

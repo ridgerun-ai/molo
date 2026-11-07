@@ -66,44 +66,48 @@ class YOLOv8(nn.Module):
                 device=device,
             )
 
-        self.layer0 = down(3, c64)
-        self.layer1 = down(c64, c128)
-        self.layer2 = block(c128, c128, shortcut=True)
-        self.layer3 = down(c128, c256)
-        self.layer4 = block(c256, c256, 6, True)
-        self.layer5 = down(c256, c512)
-        self.layer6 = block(c512, c512, 6, True)
-        self.layer7 = down(c512, c1024)
-        self.layer8 = block(c1024, c1024, shortcut=True)
-        self.layer9 = SPPF(c1024, c1024, kernel_size=5, device=device)
-        self.layer10 = UpsampleNearest2x()
-        self.layer11 = Concat()
-        self.layer12 = block(c1024 + c512, c512)
-        self.layer13 = UpsampleNearest2x()
-        self.layer14 = Concat()
-        self.layer15 = block(c512 + c256, c256)
-        self.layer16 = down(c256, c256)
-        self.layer17 = Concat()
-        self.layer18 = block(c256 + c512, c512)
-        self.layer19 = down(c512, c512)
-        self.layer20 = Concat()
-        self.layer21 = block(c512 + c1024, c1024)
-        self.layer22 = YOLOv8Detect(
-            num_classes=config.nc,
-            in_channels=(c256, c512, c1024),
-            device=device,
+        self.model = nn.LayerList(
+            [
+                down(3, c64),
+                down(c64, c128),
+                block(c128, c128, shortcut=True),
+                down(c128, c256),
+                block(c256, c256, 6, True),
+                down(c256, c512),
+                block(c512, c512, 6, True),
+                down(c512, c1024),
+                block(c1024, c1024, shortcut=True),
+                SPPF(c1024, c1024, kernel_size=5, device=device),
+                UpsampleNearest2x(),
+                Concat(),
+                block(c1024 + c512, c512),
+                UpsampleNearest2x(),
+                Concat(),
+                block(c512 + c256, c256),
+                down(c256, c256),
+                Concat(),
+                block(c256 + c512, c512),
+                down(c512, c512),
+                Concat(),
+                block(c512 + c1024, c1024),
+                YOLOv8Detect(
+                    num_classes=config.nc,
+                    in_channels=(c256, c512, c1024),
+                    device=device,
+                ),
+            ]
         )
 
     def __call__(self, x):
-        x = self.layer2(self.layer1(self.layer0(x)))
-        x4 = self.layer4(self.layer3(x))
-        x6 = self.layer6(self.layer5(x4))
-        x9 = self.layer9(self.layer8(self.layer7(x6)))
-        x12 = self.layer12(self.layer11([self.layer10(x9), x6]))
-        x15 = self.layer15(self.layer14([self.layer13(x12), x4]))
-        x18 = self.layer18(self.layer17([self.layer16(x15), x12]))
-        x21 = self.layer21(self.layer20([self.layer19(x18), x9]))
-        return self.layer22([x15, x18, x21])
+        x = self.model[2](self.model[1](self.model[0](x)))
+        x4 = self.model[4](self.model[3](x))
+        x6 = self.model[6](self.model[5](x4))
+        x9 = self.model[9](self.model[8](self.model[7](x6)))
+        x12 = self.model[12](self.model[11]([self.model[10](x9), x6]))
+        x15 = self.model[15](self.model[14]([self.model[13](x12), x4]))
+        x18 = self.model[18](self.model[17]([self.model[16](x15), x12]))
+        x21 = self.model[21](self.model[20]([self.model[19](x18), x9]))
+        return self.model[22]([x15, x18, x21])
 
 
 def build_graph(
@@ -126,8 +130,7 @@ def convert_model(model: DetectionModel) -> YOLOArtifact:
     """Convert a loaded model to an in-memory MAX artifact."""
     config = identify_model(model)
     weights = {}
-    for index in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 15, 16, 18, 19, 21, 22):
-        assign_module(weights, f"layer{index}", model.model[index])
+    assign_module(weights, "model", model.model)
     return YOLOArtifact(
         model_id=f"yolov8{config.size}",
         class_names=[model.names[index] for index in range(config.nc)],

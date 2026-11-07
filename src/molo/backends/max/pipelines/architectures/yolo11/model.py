@@ -77,59 +77,61 @@ class YOLO11(nn.Module):
                 device=device,
             )
 
-        self.layer0 = down(3, c64)
-        self.layer1 = down(c64, c128)
-        self.layer2 = block(c128, c256, expansion=0.25)
-        self.layer3 = down(c256, c256)
-        self.layer4 = block(c256, c512, expansion=0.25)
-        self.layer5 = down(c512, c512)
-        self.layer6 = block(c512, c512, c3k=True)
-        self.layer7 = down(c512, c1024)
-        self.layer8 = block(c1024, c1024, c3k=True)
-        self.layer9 = SPPF(c1024, c1024, kernel_size=5, device=device)
-        self.layer10 = C2PSA(
-            c1024, c1024, repeats=repeats, expansion=0.5, device=device
-        )
-        self.layer11 = UpsampleNearest2x()
-        self.layer12 = Concat()
-        self.layer13 = block(c1024 + c512, c512)
-        self.layer14 = UpsampleNearest2x()
-        self.layer15 = Concat()
-        self.layer16 = block(c512 + c512, c256)
-        self.layer17 = down(c256, c256)
-        self.layer18 = Concat()
-        self.layer19 = block(c256 + c512, c512)
-        self.layer20 = down(c512, c512)
-        self.layer21 = Concat()
-        self.layer22 = block(c512 + c1024, c1024, c3k=True)
-        self.layer23 = YOLO11Detect(
-            num_classes=config.nc,
-            in_channels=(c256, c512, c1024),
-            device=device,
+        self.model = nn.LayerList(
+            [
+                down(3, c64),
+                down(c64, c128),
+                block(c128, c256, expansion=0.25),
+                down(c256, c256),
+                block(c256, c512, expansion=0.25),
+                down(c512, c512),
+                block(c512, c512, c3k=True),
+                down(c512, c1024),
+                block(c1024, c1024, c3k=True),
+                SPPF(c1024, c1024, kernel_size=5, device=device),
+                C2PSA(c1024, c1024, repeats=repeats, expansion=0.5, device=device),
+                UpsampleNearest2x(),
+                Concat(),
+                block(c1024 + c512, c512),
+                UpsampleNearest2x(),
+                Concat(),
+                block(c512 + c512, c256),
+                down(c256, c256),
+                Concat(),
+                block(c256 + c512, c512),
+                down(c512, c512),
+                Concat(),
+                block(c512 + c1024, c1024, c3k=True),
+                YOLO11Detect(
+                    num_classes=config.nc,
+                    in_channels=(c256, c512, c1024),
+                    device=device,
+                ),
+            ]
         )
 
     def __call__(self, x):
-        x0 = self.layer0(x)
-        x1 = self.layer1(x0)
-        x2 = self.layer2(x1)
-        x3 = self.layer3(x2)
-        x4 = self.layer4(x3)
-        x5 = self.layer5(x4)
-        x6 = self.layer6(x5)
-        x7 = self.layer7(x6)
-        x8 = self.layer8(x7)
-        x9 = self.layer9(x8)
-        x10 = self.layer10(x9)
+        x0 = self.model[0](x)
+        x1 = self.model[1](x0)
+        x2 = self.model[2](x1)
+        x3 = self.model[3](x2)
+        x4 = self.model[4](x3)
+        x5 = self.model[5](x4)
+        x6 = self.model[6](x5)
+        x7 = self.model[7](x6)
+        x8 = self.model[8](x7)
+        x9 = self.model[9](x8)
+        x10 = self.model[10](x9)
 
-        x11 = self.layer11(x10)
-        x12 = self.layer13(self.layer12([x11, x6]))
-        x13 = self.layer14(x12)
-        x14 = self.layer16(self.layer15([x13, x4]))
-        x15 = self.layer17(x14)
-        x16 = self.layer19(self.layer18([x15, x12]))
-        x17 = self.layer20(x16)
-        x18 = self.layer22(self.layer21([x17, x10]))
-        return self.layer23([x14, x16, x18])
+        x11 = self.model[11](x10)
+        x12 = self.model[13](self.model[12]([x11, x6]))
+        x13 = self.model[14](x12)
+        x14 = self.model[16](self.model[15]([x13, x4]))
+        x15 = self.model[17](x14)
+        x16 = self.model[19](self.model[18]([x15, x12]))
+        x17 = self.model[20](x16)
+        x18 = self.model[22](self.model[21]([x17, x10]))
+        return self.model[23]([x14, x16, x18])
 
 
 def build_graph(
@@ -155,8 +157,7 @@ def convert_model(model: DetectionModel) -> YOLOArtifact:
     """Convert a loaded model to an in-memory MAX artifact."""
     config = identify_model(model)
     weights = {}
-    for index in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 16, 17, 19, 20, 22, 23):
-        assign_module(weights, f"layer{index}", model.model[index])
+    assign_module(weights, "model", model.model)
     return YOLOArtifact(
         model_id=f"yolo11{config.size}",
         class_names=[model.names[index] for index in range(config.nc)],

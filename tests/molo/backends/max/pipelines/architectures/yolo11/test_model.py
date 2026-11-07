@@ -1,6 +1,10 @@
 """Compare YOLO11 size scaling with Ultralytics."""
 
 import unittest
+from molo.backends.max.pipelines.architectures.yolo11.layers.c2psa import C2PSA
+from molo.backends.max.pipelines.architectures.yolo.layers.conv import Conv
+from molo.backends.max.pipelines.architectures.yolo11.layers.c3k2 import C3k2
+from molo.backends.max.pipelines.architectures.yolo11.layers.detect import YOLO11Detect
 from tests.helpers import module_paths
 from unittest.mock import Mock, patch
 from typing import cast
@@ -32,14 +36,14 @@ class ModelSizesTest(unittest.TestCase):
                 model = YOLO11(YOLOConfig(size=size, device=DeviceRef.CPU()))
                 reference = YOLO(f"yolo11{size}.yaml").model.model  # ty: ignore[unresolved-attribute]
                 for i in (0, 1, 3, 5, 7, 17, 20):
-                    actual = getattr(model, f"layer{i}").conv
+                    actual = cast(Conv, model.model[i]).conv
                     expected = reference[i].conv
                     self.assertEqual(
                         (actual.in_channels, actual.out_channels),
                         (expected.in_channels, expected.out_channels),
                     )
                 for i in (2, 4, 6, 8, 13, 16, 19, 22):
-                    actual = getattr(model, f"layer{i}")
+                    actual = cast(C3k2, model.model[i])
                     expected = reference[i]
                     self.assertEqual(len(actual.m), len(expected.m))
                     self.assertEqual(
@@ -48,7 +52,9 @@ class ModelSizesTest(unittest.TestCase):
                     self.assertEqual(
                         type(actual.m[0]).__name__, type(expected.m[0]).__name__
                     )
-                self.assertEqual(len(model.layer10.m), len(reference[10].m))
+                self.assertEqual(
+                    len(cast(C2PSA, model.model[10]).m), len(reference[10].m)
+                )
 
     def test_custom_class_count_scaling(self):
         for size in ("n", "m", "x"):
@@ -57,7 +63,7 @@ class ModelSizesTest(unittest.TestCase):
                 reference = DetectionModel(yaml, ch=3, nc=64, verbose=False)
                 model = YOLO11(YOLOConfig(size=size, nc=64))
                 for i in (0, 1, 3, 5, 7, 17, 20):
-                    actual = getattr(model, f"layer{i}").conv
+                    actual = cast(Conv, model.model[i]).conv
                     expected = reference.model[i].conv
                     self.assertEqual(
                         (actual.in_channels, actual.out_channels),
@@ -93,7 +99,9 @@ class ModelSizesTest(unittest.TestCase):
         layers = [torch.nn.Linear(1, 1) for _ in range(24)]
         setattr(layers[-1], "reg_max", 16)
         model = Mock(
-            model=layers, names={1: "second", 0: "first"}, yaml={"scale": "n", "nc": 2}
+            model=torch.nn.Sequential(*layers),
+            names={1: "second", 0: "first"},
+            yaml={"scale": "n", "nc": 2},
         )
         with patch(
             "builtins.open", side_effect=AssertionError("Conversion must not write")
@@ -101,8 +109,8 @@ class ModelSizesTest(unittest.TestCase):
             artifact = convert_weights(model)
         self.assertEqual(artifact.model_id, "yolo11n")
         self.assertEqual(artifact.class_names, ["first", "second"])
-        self.assertIn("layer0.weight", artifact.weights)
-        self.assertIn("layer23.weight", artifact.weights)
+        self.assertIn("model.0.weight", artifact.weights)
+        self.assertIn("model.23.weight", artifact.weights)
 
     def test_identify_model(self):
         for size in ("n", "s", "m", "l", "x"):
@@ -121,17 +129,14 @@ class ModelSizesTest(unittest.TestCase):
                     self.assertIs(model.config, config)
                     reference.fuse(verbose=False)
                     expected_paths = {
-                        f"layer{path}"
-                        for path, _ in reference.model.named_modules(
-                            remove_duplicate=False
-                        )
+                        path
+                        for path, _ in reference.named_modules(remove_duplicate=False)
                         if path
                     }
                     self.assertEqual(module_paths(model), expected_paths)
                     artifact = convert_weights(reference)
                     expected_weights = {
-                        f"layer{name}": value
-                        for name, value in reference.model.state_dict().items()
+                        name: value for name, value in reference.state_dict().items()
                     }
                     self.assertEqual(set(model.raw_state_dict()), set(expected_weights))
                     self.assertEqual(set(artifact.weights), set(expected_weights))
@@ -147,14 +152,16 @@ class ModelSizesTest(unittest.TestCase):
                             value, expected_weights[name].detach().numpy()
                         )
 
-                    self.assertEqual(model.layer23.num_classes, config.nc)
+                    self.assertEqual(
+                        cast(YOLO11Detect, model.model[23]).num_classes, config.nc
+                    )
 
     def test_identify_custom_classes(self):
         reference = cast(DetectionModel, YOLO("yolo11n.yaml").model)
         reference = DetectionModel(reference.yaml, nc=5, verbose=False)
         config = identify_model(reference)
         self.assertEqual(config.nc, 5)
-        self.assertEqual(YOLO11(config).layer23.num_classes, 5)
+        self.assertEqual(cast(YOLO11Detect, YOLO11(config).model[23]).num_classes, 5)
 
     def test_sizes(self):
         for size, scale in YOLO11_SIZES.items():
@@ -171,14 +178,14 @@ class ModelSizesTest(unittest.TestCase):
             with self.subTest(corruption=corruption):
                 weights = dict(artifact.weights)
                 if corruption == "missing":
-                    del weights["layer0.conv.weight"]
+                    del weights["model.0.conv.weight"]
                 elif corruption == "unexpected":
                     weights["unexpected.weight"] = np.zeros(1, dtype=np.float32)
                 elif corruption == "shape":
-                    weights["layer0.conv.weight"] = np.zeros(1, dtype=np.float32)
+                    weights["model.0.conv.weight"] = np.zeros(1, dtype=np.float32)
                 else:
-                    weights["layer0.conv.weight"] = weights[
-                        "layer0.conv.weight"
+                    weights["model.0.conv.weight"] = weights[
+                        "model.0.conv.weight"
                     ].astype(np.float64)
                 model = YOLO11(identify_model(reference))
                 with self.assertRaises(ValueError):
