@@ -55,11 +55,12 @@ class MaxBackend(BaseBackend):
         model_id = artifact.model_id
         architecture = get_architecture(model_id)
         self._build_graph = architecture.build_graph
-        box_weights = next(
-            weight
+        box_name, box_weights = next(
+            (name, weight)
             for name, weight in artifact.weights.items()
-            if name.endswith(".cv2.0.2.weight")
+            if name.endswith("cv2.0.2.weight")
         )
+        self.end2end = ".one2one_cv2." in box_name
         self.config = YOLOConfig(
             size=cast(YOLOSize, model_id.removeprefix(architecture.prefix)),
             nc=len(self.names),
@@ -74,6 +75,7 @@ class MaxBackend(BaseBackend):
             "names": self.names,
             "stride": self.stride,
             "task": self.task,
+            "end2end": self.end2end,
         }
         self.session = InferenceSession(devices=[Device.cpu()])
         return self

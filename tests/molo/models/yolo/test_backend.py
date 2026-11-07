@@ -2,6 +2,7 @@
 
 import unittest
 from copy import deepcopy
+from unittest.mock import patch
 from typing import cast
 from ultralytics.nn.tasks import DetectionModel
 
@@ -13,6 +14,7 @@ from ultralytics import YOLO
 
 from molo.backends.max.pipelines.architectures.yolo.convert import convert_model
 from molo.models.yolo.backend import MaxBackend
+from molo.backends.max.pipelines.architectures.yolo.artifact import YOLOArtifact
 from molo.backends.max.pipelines.architectures.yolo.config import ImageShape
 
 
@@ -112,3 +114,32 @@ class BackendTest(unittest.TestCase):
                         )
                     finally:
                         artifact.unlink(missing_ok=True)
+
+    def test_detection_head_metadata(self):
+        for model_id, branch, end2end in (
+            ("yolo11n", "cv2", False),
+            ("yolo26n", "one2one_cv2", True),
+        ):
+            with self.subTest(model_id=model_id):
+                artifact = YOLOArtifact(
+                    model_id=model_id,
+                    class_names=["object"],
+                    weights={
+                        f"model.23.{branch}.0.2.weight": np.zeros(
+                            (4, 16, 1, 1), dtype=np.float32
+                        )
+                    },
+                )
+                with (
+                    patch(
+                        "molo.backends.max.pipelines.architectures.yolo.artifact.load_artifact",
+                        return_value=artifact,
+                    ),
+                    patch("max.engine.InferenceSession"),
+                ):
+                    backend = MaxBackend(f"{model_id}.max", device=torch.device("cpu"))
+                assert backend.config is not None
+                self.assertEqual(backend.config.reg_max, 1)
+                self.assertEqual(backend.names, {0: "object"})
+                self.assertEqual(backend.end2end, end2end)
+                self.assertEqual(backend.metadata["end2end"], end2end)

@@ -24,6 +24,10 @@ from .yolov8.model import (
 from .yolov8.model import build_graph as build_yolov8_graph
 from .yolov8.model import YOLOV8_SIZES
 
+from .yolo26.model import convert_model as convert_yolo26
+from .yolo26.model import build_graph as build_yolo26_graph
+from .yolo26.model import YOLO26_SIZES
+
 
 @dataclass(frozen=True)
 class Architecture:
@@ -66,5 +70,14 @@ register_architecture(
         sizes=YOLOV8_SIZES,
         build_graph=build_yolov8_graph,
         convert_model=convert_yolov8,
+    ),
+)
+
+register_architecture(
+    Architecture(
+        prefix="yolo26",
+        sizes=YOLO26_SIZES,
+        build_graph=build_yolo26_graph,
+        convert_model=convert_yolo26,
     ),
 )

@@ -98,3 +98,41 @@ class ExportTest(unittest.TestCase):
             np.testing.assert_allclose(actual, expected, atol=0.003, rtol=1e-4)
         finally:
             artifact.unlink(missing_ok=True)
+
+    def test_yolo26_export_and_prediction(self):
+        artifact = Path("yolo26_verified.max")
+        if artifact.exists():
+            raise FileExistsError(f"Refusing to overwrite {artifact}")
+        try:
+            source = YOLO("yolo26n.pt")
+            reference = cast(Any, source.model)
+            reference.pt_path = "yolo26_verified.pt"
+            output = source.export(format="max", imgsz=64)
+            self.assertEqual(Path(output), artifact)
+            exported = load_artifact(artifact)
+            self.assertEqual(exported.model_id, "yolo26n")
+            self.assertIn("model.23.one2one_cv2.0.2.weight", exported.weights)
+            self.assertNotIn("model.23.cv2.0.2.weight", exported.weights)
+            images = list(
+                np.random.default_rng(24).integers(
+                    0, 256, (2, 64, 64, 3), dtype=np.uint8
+                )
+            )
+            expected = source.predict(
+                images, batch=2, imgsz=64, conf=0.0, verbose=False
+            )
+            actual = YOLO(artifact, task="detect").predict(
+                images, batch=2, imgsz=64, conf=0.0, verbose=False
+            )
+            self.assertEqual(len(actual), len(images))
+            for result, reference_result in zip(actual, expected):
+                assert result.boxes is not None and reference_result.boxes is not None
+                self.assertGreater(len(reference_result.boxes), 0)
+                np.testing.assert_allclose(
+                    np.asarray(result.boxes.data),
+                    np.asarray(reference_result.boxes.data),
+                    atol=0.003,
+                    rtol=1e-4,
+                )
+        finally:
+            artifact.unlink(missing_ok=True)
