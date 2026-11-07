@@ -13,7 +13,7 @@ from max.dtype import DType
 from max.graph import Graph, TensorType
 
 from ..yolo.layers.conv import Conv
-from ..yolo.layers import Concat
+from ..yolo.layers.concat import Concat
 from .layers.detect import YOLOv8Detect
 from ..yolo.layers.sppf import SPPF
 from ..yolo.layers.upsample import UpsampleNearest2x

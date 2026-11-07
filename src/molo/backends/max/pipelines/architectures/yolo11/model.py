@@ -15,7 +15,7 @@ from max.graph import Graph, TensorType
 from .layers.c2psa import C2PSA
 from .layers.c3k2 import C3k2
 from ..yolo.layers.conv import Conv
-from ..yolo.layers import Concat
+from ..yolo.layers.concat import Concat
 from .layers.detect import YOLO11Detect
 from ..yolo.layers.sppf import SPPF
 from ..yolo.layers.upsample import UpsampleNearest2x
