@@ -1,9 +1,9 @@
 """YOLO11 position-sensitive attention block for MAX Graph inference."""
 
 from max.graph import DeviceRef, TensorValue
-from max.nn import Module
+from max.nn import Module, Sequential
 from .attention import Attention
-from .conv import Conv
+from ...yolo.layers.conv import Conv
 
 
 class PSABlock(Module):
@@ -15,7 +15,6 @@ class PSABlock(Module):
         num_heads: Number of attention heads.
         shortcut: Add residual connections around attention and feed-forward stages.
         device: Target device.
-        name: Optional prefix for weight names.
     """
 
     def __init__(
@@ -25,20 +24,14 @@ class PSABlock(Module):
         num_heads: int = 4,
         shortcut: bool = True,
         device: DeviceRef = DeviceRef.GPU(),
-        name: str | None = None,
     ) -> None:
         super().__init__()
-        prefix = f"{name}." if name else ""
-        self.attn = Attention(
-            channels, num_heads, attention_ratio, device, f"{prefix}attn"
-        )
-        self.ffn1 = Conv(channels, 2 * channels, device=device, name=f"{prefix}ffn.0")
-        self.ffn2 = Conv(
-            2 * channels,
-            channels,
-            activation=False,
-            device=device,
-            name=f"{prefix}ffn.1",
+        self.attn = Attention(channels, num_heads, attention_ratio, device)
+        self.ffn = Sequential(
+            [
+                Conv(channels, 2 * channels, device=device),
+                Conv(2 * channels, channels, activation=False, device=device),
+            ]
         )
         self.add = shortcut
 
@@ -46,5 +39,5 @@ class PSABlock(Module):
         """Apply attention and feed-forward stages."""
         attention = self.attn(x)
         x = x + attention if self.add else attention
-        feed_forward = self.ffn2(self.ffn1(x))
+        feed_forward = self.ffn(x)
         return x + feed_forward if self.add else feed_forward

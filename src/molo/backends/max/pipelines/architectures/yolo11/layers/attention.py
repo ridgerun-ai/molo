@@ -2,7 +2,7 @@
 
 from max.graph import DeviceRef, TensorValue, ops
 from max.nn import Module
-from .conv import Conv
+from ...yolo.layers.conv import Conv
 
 
 class Attention(Module):
@@ -13,7 +13,6 @@ class Attention(Module):
         num_heads: Number of attention heads.
         attention_ratio: Key and query dimension as a fraction of head dimension.
         device: Target device.
-        name: Optional prefix for weight names.
     """
 
     def __init__(
@@ -22,7 +21,6 @@ class Attention(Module):
         num_heads: int = 8,
         attention_ratio: float = 0.5,
         device: DeviceRef = DeviceRef.GPU(),
-        name: str | None = None,
     ) -> None:
         super().__init__()
         if num_heads <= 0 or channels % num_heads:
@@ -34,17 +32,13 @@ class Attention(Module):
         if self.key_dim <= 0:
             raise ValueError("attention_ratio must produce a positive key dimension")
         self.scale = self.key_dim**-0.5
-        prefix = f"{name}." if name else ""
         self.qkv = Conv(
             channels,
             channels + 2 * num_heads * self.key_dim,
             activation=False,
             device=device,
-            name=f"{prefix}qkv",
         )
-        self.proj = Conv(
-            channels, channels, activation=False, device=device, name=f"{prefix}proj"
-        )
+        self.proj = Conv(channels, channels, activation=False, device=device)
         self.pe = Conv(
             channels,
             channels,
@@ -52,7 +46,6 @@ class Attention(Module):
             groups=channels,
             activation=False,
             device=device,
-            name=f"{prefix}pe",
         )
 
     def __call__(self, x: TensorValue) -> TensorValue:

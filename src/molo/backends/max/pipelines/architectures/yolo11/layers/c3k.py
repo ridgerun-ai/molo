@@ -1,10 +1,10 @@
 """YOLO C3k module for MAX Graph inference."""
 
 from max.graph import DeviceRef, TensorValue, ops
-from max.nn import Module
+from max.nn import LayerList, Module
 
-from .bottleneck import Bottleneck
-from .conv import Conv
+from ...yolo.layers.bottleneck import Bottleneck
+from ...yolo.layers.conv import Conv
 
 
 class C3k(Module):
@@ -19,7 +19,6 @@ class C3k(Module):
         expansion: Ratio of hidden channels to output channels.
         kernel_size: Kernel size for both bottleneck convolutions.
         device: Target device.
-        name: Optional prefix for weight names.
     """
 
     def __init__(
@@ -32,27 +31,26 @@ class C3k(Module):
         expansion: float = 0.5,
         kernel_size: int = 3,
         device: DeviceRef = DeviceRef.GPU(),
-        name: str | None = None,
     ) -> None:
         super().__init__()
         hidden = int(out_channels * expansion)
-        prefix = f"{name}." if name else ""
-        self.cv1 = Conv(in_channels, hidden, device=device, name=f"{prefix}cv1")
-        self.cv2 = Conv(in_channels, hidden, device=device, name=f"{prefix}cv2")
-        self.cv3 = Conv(2 * hidden, out_channels, device=device, name=f"{prefix}cv3")
-        self.m = [
-            Bottleneck(
-                hidden,
-                hidden,
-                shortcut=shortcut,
-                groups=groups,
-                kernel_size=(kernel_size, kernel_size),
-                expansion=1.0,
-                device=device,
-                name=f"{prefix}m.{i}",
-            )
-            for i in range(repeats)
-        ]
+        self.cv1 = Conv(in_channels, hidden, device=device)
+        self.cv2 = Conv(in_channels, hidden, device=device)
+        self.cv3 = Conv(2 * hidden, out_channels, device=device)
+        self.m = LayerList(
+            [
+                Bottleneck(
+                    hidden,
+                    hidden,
+                    shortcut=shortcut,
+                    groups=groups,
+                    kernel_size=(kernel_size, kernel_size),
+                    expansion=1.0,
+                    device=device,
+                )
+                for i in range(repeats)
+            ]
+        )
 
     def __call__(self, x: TensorValue) -> TensorValue:
         """Apply both paths, concatenate channels, and fuse them."""
