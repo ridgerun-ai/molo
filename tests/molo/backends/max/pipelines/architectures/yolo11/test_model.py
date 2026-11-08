@@ -82,7 +82,7 @@ class ModelSizesTest(unittest.TestCase):
                 artifact = source.with_suffix(".max")
                 if artifact.exists():
                     raise FileExistsError(f"Refusing to overwrite {artifact}")
-                reference = YOLO(str(source)).model.eval()  # ty: ignore[unresolved-attribute]
+                reference = YOLO(str(source)).model.eval().fuse(verbose=False)  # ty: ignore[unresolved-attribute]
                 try:
                     convert_model(reference, artifact, model_id=f"yolo11{size}")
                     backend = MaxBackend(str(artifact), device=torch.device("cpu"))
@@ -172,7 +172,9 @@ class ModelSizesTest(unittest.TestCase):
                 )
 
     def test_strict_weight_loading(self):
-        reference = cast(DetectionModel, YOLO("yolo11n.pt").model)
+        reference = (
+            cast(DetectionModel, YOLO("yolo11n.pt").model).eval().fuse(verbose=False)
+        )
         artifact = convert_weights(reference)
         for corruption in ("missing", "unexpected", "shape", "dtype"):
             with self.subTest(corruption=corruption):

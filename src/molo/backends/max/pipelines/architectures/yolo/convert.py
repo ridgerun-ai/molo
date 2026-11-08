@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from copy import deepcopy
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -16,28 +15,19 @@ from .artifact import save_artifact
 
 
 def assign_module(target: dict[str, np.ndarray], prefix: str, module) -> None:
-    """Copy parameters, folding YOLO convolution normalization into weights and bias."""
-    from ultralytics.nn.modules.conv import Conv
-    from ultralytics.utils.torch_utils import fuse_conv_and_bn
-
-    for name, value in module.state_dict().items():
+    """Extract prepared FP32 weights without modifying or repairing the module."""
+    state = module.state_dict()
+    for name, value in state.items():
         if value.is_floating_point() and value.dtype != torch.float32:
             raise ValueError(
                 f"MAX conversion requires float32 weights; {name!r} has {value.dtype}"
             )
-
     if any(
-        isinstance(child, Conv) and hasattr(child, "bn") for child in module.modules()
+        isinstance(child, torch.nn.modules.batchnorm._BatchNorm)
+        for child in module.modules()
     ):
-        module = deepcopy(module).eval()
-        for child in module.modules():
-            if isinstance(child, Conv) and hasattr(child, "bn"):
-                child.conv = fuse_conv_and_bn(child.conv, child.bn)
-                del child.bn
-                child.forward = child.forward_fuse
-    for name, value in module.state_dict().items():
-        if name.endswith("num_batches_tracked"):
-            continue
+        raise ValueError("MAX conversion requires fused weights")
+    for name, value in state.items():
         target[f"{prefix}.{name}" if prefix else name] = value.detach().cpu().numpy()
 
 

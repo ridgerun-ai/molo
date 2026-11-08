@@ -2,6 +2,7 @@
 
 import unittest
 from copy import deepcopy
+from unittest.mock import patch
 from typing import cast
 from ultralytics.nn.tasks import DetectionModel
 
@@ -13,6 +14,7 @@ from ultralytics import YOLO
 
 from molo.backends.max.pipelines.architectures.yolo.convert import convert_model
 from molo.models.yolo.backend import MaxBackend
+from molo.backends.max.pipelines.architectures.yolo.artifact import YOLOArtifact
 from molo.backends.max.pipelines.architectures.yolo.config import ImageShape
 
 
@@ -20,7 +22,11 @@ class BackendTest(unittest.TestCase):
     def test_prediction_and_graph_cache(self):
         for family in ("yolo11", "yolov8"):
             with self.subTest(family=family):
-                reference = cast(DetectionModel, YOLO(f"{family}n.pt").model).eval()
+                reference = (
+                    cast(DetectionModel, YOLO(f"{family}n.pt").model)
+                    .eval()
+                    .fuse(verbose=False)
+                )
                 artifact = Path(f"{family}_batched.max")
                 if artifact.exists():
                     raise FileExistsError(f"Refusing to overwrite {artifact}")
@@ -95,7 +101,11 @@ class BackendTest(unittest.TestCase):
                 with self.subTest(family=family, reg_max=reg_max):
                     cfg = deepcopy(yaml)
                     cfg["reg_max"] = reg_max
-                    reference = DetectionModel(cfg, nc=3, verbose=False).eval()
+                    reference = (
+                        DetectionModel(cfg, nc=3, verbose=False)
+                        .eval()
+                        .fuse(verbose=False)
+                    )
                     artifact = Path(f"{family}_reg_max_{reg_max}.max")
                     if artifact.exists():
                         raise FileExistsError(f"Refusing to overwrite {artifact}")
@@ -112,3 +122,32 @@ class BackendTest(unittest.TestCase):
                         )
                     finally:
                         artifact.unlink(missing_ok=True)
+
+    def test_detection_head_metadata(self):
+        for model_id, branch, end2end in (
+            ("yolo11n", "cv2", False),
+            ("yolo26n", "one2one_cv2", True),
+        ):
+            with self.subTest(model_id=model_id):
+                artifact = YOLOArtifact(
+                    model_id=model_id,
+                    class_names=["object"],
+                    weights={
+                        f"model.23.{branch}.0.2.weight": np.zeros(
+                            (4, 16, 1, 1), dtype=np.float32
+                        )
+                    },
+                )
+                with (
+                    patch(
+                        "molo.models.yolo.backend.load_artifact",
+                        return_value=artifact,
+                    ),
+                    patch("molo.models.yolo.backend.InferenceSession"),
+                ):
+                    backend = MaxBackend(f"{model_id}.max", device=torch.device("cpu"))
+                assert backend.config is not None
+                self.assertEqual(backend.config.reg_max, 1)
+                self.assertEqual(backend.names, {0: "object"})
+                self.assertEqual(backend.end2end, end2end)
+                self.assertEqual(backend.metadata["end2end"], end2end)

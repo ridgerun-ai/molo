@@ -96,10 +96,20 @@ class Detect(Module):
 
     def raw(self, features: list[TensorValue]) -> list[TensorValue]:
         """Return the unprocessed box and class logits for each scale."""
+        return self._raw(features, self.cv2, self.cv3)
+
+    def _raw(
+        self,
+        features: list[TensorValue],
+        box_branches: LayerList,
+        class_branches: LayerList,
+    ) -> list[TensorValue]:
         if len(features) != len(self.in_channels):
             raise ValueError("number of feature maps must match in_channels")
         outputs = []
-        for feature, box_branch, class_branch in zip(features, self.cv2, self.cv3):
+        for feature, box_branch, class_branch in zip(
+            features, box_branches, class_branches
+        ):
             box = feature
             for layer in box_branch:
                 box = layer(box)
@@ -110,7 +120,7 @@ class Detect(Module):
         return outputs
 
     def decode(self, raw: list[TensorValue]) -> TensorValue:
-        """Decode raw logits into xywh boxes and class scores."""
+        """Decode raw logits into box coordinates and class scores."""
         if len(raw) != len(self.strides):
             raise ValueError("number of raw feature maps must match strides")
         flattened, anchors, strides = [], [], []
@@ -147,11 +157,17 @@ class Detect(Module):
             device=DeviceRef.CPU(),
         ).to(combined.device)
         top_left, bottom_right = points - left_top, points + right_bottom
+        return ops.concat(
+            (self._decode_boxes(top_left, bottom_right) * scale, ops.sigmoid(classes)),
+            axis=1,
+        )
+
+    def _decode_boxes(
+        self, top_left: TensorValue, bottom_right: TensorValue
+    ) -> TensorValue:
         center = (top_left + bottom_right) * 0.5
         size = bottom_right - top_left
-        return ops.concat(
-            (ops.concat((center, size), axis=1) * scale, ops.sigmoid(classes)), axis=1
-        )
+        return ops.concat((center, size), axis=1)
 
     def __call__(self, features: list[TensorValue]) -> TensorValue:
         """Return decoded boxes and class scores before NMS."""

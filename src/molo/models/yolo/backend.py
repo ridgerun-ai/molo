@@ -1,14 +1,23 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 from pathlib import Path
+
+from max.driver import Device
+from max.engine import InferenceSession
+from molo.backends.max.pipelines.architectures import get_architecture
+from molo.backends.max.pipelines.architectures.yolo.artifact import (
+    YOLOArtifact,
+    load_artifact,
+)
+from molo.backends.max.pipelines.architectures.yolo.config import (
+    ImageShape,
+    YOLOConfig,
+    YOLOSize,
+)
 
 import numpy as np
 import torch
-
-if TYPE_CHECKING:
-    from molo.backends.max.pipelines.architectures.yolo.config import ImageShape
-    from molo.backends.max.pipelines.architectures.yolo.artifact import YOLOArtifact
 
 from ultralytics.nn.autobackend import AutoBackend
 from ultralytics.nn.backends.base import BaseBackend
@@ -33,33 +42,18 @@ class MaxBackend(BaseBackend):
         self._compiled_models: dict[ImageShape, object] = {}
         self._build_graph: Any = None
 
-        try:
-            from max.driver import Device
-            from max.engine import InferenceSession
-            from molo.backends.max.pipelines.architectures.yolo.artifact import (
-                load_artifact,
-            )
-            from molo.backends.max.pipelines.architectures import get_architecture
-            from molo.backends.max.pipelines.architectures.yolo.config import (
-                YOLOConfig,
-                YOLOSize,
-            )
-        except ImportError as exc:
-            raise ImportError(
-                "The MAX runtime is required to load .max models."
-            ) from exc
-
         artifact = load_artifact(weight_path)
         self.artifact = artifact
         self.names = dict(enumerate(artifact.class_names))
         model_id = artifact.model_id
         architecture = get_architecture(model_id)
         self._build_graph = architecture.build_graph
-        box_weights = next(
-            weight
+        box_name, box_weights = next(
+            (name, weight)
             for name, weight in artifact.weights.items()
-            if name.endswith(".cv2.0.2.weight")
+            if name.endswith("cv2.0.2.weight")
         )
+        self.end2end = ".one2one_cv2." in box_name
         self.config = YOLOConfig(
             size=cast(YOLOSize, model_id.removeprefix(architecture.prefix)),
             nc=len(self.names),
@@ -74,6 +68,7 @@ class MaxBackend(BaseBackend):
             "names": self.names,
             "stride": self.stride,
             "task": self.task,
+            "end2end": self.end2end,
         }
         self.session = InferenceSession(devices=[Device.cpu()])
         return self
@@ -81,8 +76,6 @@ class MaxBackend(BaseBackend):
     def _ensure_model_for_shape(
         self, batch_size: int, input_height: int, input_width: int
     ):
-        from molo.backends.max.pipelines.architectures.yolo.config import ImageShape
-
         if (
             self.session is None
             or self.config is None
