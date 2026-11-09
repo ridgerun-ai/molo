@@ -1,8 +1,13 @@
+# Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com)
+# SPDX-License-Identifier: AGPL-3.0-only
+
 [project]
 name = "molo"
 version = "0.1.0"
 description = "Implementation of YOLO object detection models in Mojo."
 readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
 authors = [
     { name = "Michael Gruner", email = "michael.gruner@ridgerun.com" }
 ]
@@ -25,4 +30,7 @@ dev = [
     "pre-commit>=4.5.1",
     "ruff>=0.15.10",
     "ty>=0.0.29",
+]
+docs = [
+    "sphinx>=8.2",
 ]

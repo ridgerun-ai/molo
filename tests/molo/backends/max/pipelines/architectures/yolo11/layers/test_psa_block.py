@@ -1,3 +1,6 @@
+# Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com)
+# SPDX-License-Identifier: AGPL-3.0-only
+
 import unittest
 from ultralytics.nn.modules.block import PSABlock as Reference
 from molo.backends.max.pipelines.architectures.yolo11.layers.psa_block import PSABlock

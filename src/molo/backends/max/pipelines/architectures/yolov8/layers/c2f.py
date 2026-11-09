@@ -1,3 +1,6 @@
+# Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com)
+# SPDX-License-Identifier: AGPL-3.0-only
+
 """YOLOv8 C2f block."""
 
 from max.graph import DeviceRef, TensorValue, ops
