@@ -1,3 +1,6 @@
+# Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com)
+# SPDX-License-Identifier: AGPL-3.0-only
+
 """Ultralytics-compatible Python interface with MAX support."""
 
 from typing import TYPE_CHECKING

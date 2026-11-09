@@ -1,3 +1,6 @@
+# Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com)
+# SPDX-License-Identifier: AGPL-3.0-only
+
 """Sphinx configuration for MOLO's guides and generated API reference."""
 
 from importlib.metadata import version as package_version

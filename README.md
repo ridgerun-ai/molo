@@ -1,3 +1,8 @@
+<!--
+Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com)
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # MOLO
 
 MOLO is a port of Ultralytics YOLO detection models to Mojo / MAX. The models
@@ -108,3 +113,11 @@ uv run --group docs sphinx-build -W --keep-going -b html docs docs/_build/html
 Open `docs/_build/html/index.html` in a browser. The documentation includes
 installation and package builds, model conversion, inference, development,
 and API pages generated from the source docstrings.
+
+## License
+
+MOLO is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com).
+
+Ultralytics YOLO is a third-party dependency licensed under AGPL-3.0.
+Its code and model weights remain subject to their applicable license terms.

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com)
+# SPDX-License-Identifier: AGPL-3.0-only
+
 """Convert Ultralytics YOLO checkpoints to MAX weights."""
 
 from __future__ import annotations

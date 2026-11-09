@@ -1,3 +1,6 @@
+# Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com)
+# SPDX-License-Identifier: AGPL-3.0-only
+
 """YOLO11 position-sensitive attention block for MAX Graph inference."""
 
 from max.graph import DeviceRef, TensorValue

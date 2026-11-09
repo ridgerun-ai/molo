@@ -1,3 +1,6 @@
+# Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com)
+# SPDX-License-Identifier: AGPL-3.0-only
+
 """Ultralytics inference backend for self-contained MAX model artifacts."""
 
 from __future__ import annotations
