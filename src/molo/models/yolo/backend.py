@@ -1,3 +1,5 @@
+"""Ultralytics inference backend for self-contained MAX model artifacts."""
+
 from __future__ import annotations
 
 from typing import Any, cast

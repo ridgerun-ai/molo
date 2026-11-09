@@ -1,3 +1,5 @@
+"""YOLO11 model construction, graph building, and weight conversion."""
+
 from __future__ import annotations
 
 from ultralytics.nn.tasks import DetectionModel
