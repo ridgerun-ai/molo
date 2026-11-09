@@ -17,6 +17,7 @@ interface also exposes the Ultralytics-compatible ``YOLO`` API.
 .. toctree::
    :maxdepth: 2
 
+   quickstart
    installation
    conversion
    inference
