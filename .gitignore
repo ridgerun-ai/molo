@@ -9,3 +9,7 @@ wheels/
 # Virtual environments
 .venv
 .python-version
+
+# Generated documentation
+docs/_build/
+docs/generated/
