@@ -5,7 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # MOLO
 
-MOLO is a port of Ultralytics YOLO detection models to Mojo / MAX. The models
+MOLO is a port of [Ultralytics YOLO](https://docs.ultralytics.com/) detection models to
+[Mojo](https://mojolang.org/) / [MAX](https://max.modular.com/). The models
 are implemented with MAX's Python graph and neural-network APIs and execute
 through the MAX runtime.
 
@@ -14,13 +15,15 @@ To ease testing, MOLO provides `molo`, a drop-in replacement for the Ultralytics
 Ultralytics-compatible `YOLO` Python API.
 
 **This project is under construction.** The current implementation supports
-YOLOv8, YOLO11, and YOLO26 detection models in sizes `n`, `s`, `m`, `l`, and `x`.
+[YOLOv8](https://docs.ultralytics.com/models/yolov8/),
+[YOLO11](https://docs.ultralytics.com/models/yolo11/), and
+[YOLO26](https://docs.ultralytics.com/models/yolo26/) detection models in sizes `n`, `s`, `m`, `l`, and `x`.
 Inference on this branch uses CPU and FP32.
 
 ## Run locally
 
 Install [Git](https://git-scm.com/) and [uv](https://docs.astral.sh/uv/getting-started/installation/).
-Use a system supported by [MAX](https://max.modular.com/system-requirements/).
+Use a system meeting the [MAX system requirements](https://max.modular.com/system-requirements/).
 The project requires Python 3.13 or later; uv can install the required Python
 version when setting up the environment.
 
@@ -103,7 +106,8 @@ tests compile MAX graphs and can take several minutes.
 
 ## Documentation
 
-Build the guides and generated API/layer reference:
+Build the guides and generated API/layer reference with
+[Sphinx](https://www.sphinx-doc.org/):
 
 ```bash
 uv sync --group docs
@@ -117,7 +121,7 @@ and API pages generated from the source docstrings.
 ## License
 
 MOLO is licensed under the [GNU Affero General Public License v3.0](LICENSE).
-Copyright (C) 2026 RidgeRun, LLC (http://www.ridgerun.com).
+Copyright (C) 2026 [RidgeRun, LLC](https://www.ridgerun.com/).
 
 Ultralytics YOLO is a third-party dependency licensed under AGPL-3.0.
 Its code and model weights remain subject to their applicable license terms.

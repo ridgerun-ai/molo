@@ -6,12 +6,14 @@
 """Command-line driver for Ultralytics-compatible MAX export and prediction."""
 
 from ultralytics.cfg import entrypoint
+from ultralytics.utils import ARGV
 
 from molo.models.yolo import install
 
 
 def main() -> None:
     install()
+    ARGV.insert(1, "save=True")
     entrypoint()
 
 
